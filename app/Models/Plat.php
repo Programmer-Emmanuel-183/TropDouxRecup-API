@@ -29,8 +29,8 @@ class Plat extends Model
         'prix_origine',
         'prix_reduit',
         'quantite_plat',
+        'quantite_disponible',
         'is_active',
-        'is_finish',
         'id_categorie',
         'id_marchand'
     ];

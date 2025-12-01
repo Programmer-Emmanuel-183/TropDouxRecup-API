@@ -127,7 +127,8 @@ class AuthController extends Controller
                     'telephone' => $client->tel_client,
                     'password' => $client->password_client,
                     'token' => $token,
-                    'role' => 'client'
+                    'role' => 'client',
+                    'device_token' => $client->device_token
                 ],
                 'message' => 'Inscription reussie'
             ],200);
@@ -197,6 +198,7 @@ class AuthController extends Controller
                         'tel_marchand' => $marchand->tel_marchand,
                         'localite' => $marchand->commune->localite,
                         'type_abonnement' => $abonnement->type_abonnement,
+                        'device_token' => $marchand->device_token,
                         'token' => $token
                     ],
                 ], 200);
@@ -295,6 +297,7 @@ class AuthController extends Controller
                         'localite' => $marchand->commune->localite,
                         'role' => 'marchand',
                         'type_abonnement' => $marchand->abonnement->type_abonnement,
+                        'device_token' => $marchand->device_token,
                         'token' => $token
                     ],
                     'message' => 'Connexion réussie'
@@ -312,6 +315,7 @@ class AuthController extends Controller
                         'email' => $client->email_client,
                         'telephone' => $client->tel_client,
                         'role' => 'client',
+                        'device_token' => $client->device_token,
                         'token' => $token
                     ],
                     'message' => 'Connexion réussie'
@@ -354,7 +358,8 @@ class AuthController extends Controller
                     'role' => 'marchand',
                     'solde' => $marchand->solde_marchand,
                     'abonnement' => $marchand->abonnement->type_abonnement ?? null,
-                    'localite' => $marchand->commune->localite ?? null
+                    'localite' => $marchand->commune->localite ?? null,
+                    'device_token' => $marchand->device_token,
                 ],
                 'message' => 'Information du profil affichée avec succès'
             ],200);
@@ -388,6 +393,7 @@ class AuthController extends Controller
                     'telephone' => $client->tel_client,
                     'image_profil' => $client->image_client,
                     'role' => 'client',
+                    'device_token' => $client->device_token,
                 ],
                 'message' => 'Information du profil affichée avec succès'
             ],200);
@@ -444,7 +450,9 @@ class AuthController extends Controller
                     'image_profil' => $marchand->image_marchand,
                     'solde' => $marchand->solde_marchand,
                     'abonnement' => $marchand->abonnement->type_abonnement,
-                    'localite' => $marchand->commune->localite
+                    'localite' => $marchand->commune->localite,
+                    'device_token' => $marchand->device_token,
+
                 ],
                 'message' => 'Info marchand modifié avec succès.'
             ],200);
@@ -497,6 +505,7 @@ class AuthController extends Controller
                     'email' => $client->email_client,
                     'telephone' => $client->tel_client,
                     'image_profil' => $client->image_client,
+                    'device_token' => $client->device_token,
                 ],
                 'message' => 'Info client modifié avec succès.'
             ],200);

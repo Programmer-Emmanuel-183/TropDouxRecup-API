@@ -183,7 +183,7 @@ class CategorieController extends Controller
         // Lecture et encodage en base64
         $imageContent = base64_encode(file_get_contents($image->getRealPath()));
 
-        $response = Http::asForm()->post('https://api.imgbb.com/1/upload', [
+        $response = Http::asForm()->timeout(30)->post('https://api.imgbb.com/1/upload', [
             'key' => $apiKey,
             'image' => $imageContent,
         ]);

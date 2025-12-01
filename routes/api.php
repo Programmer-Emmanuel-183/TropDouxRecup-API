@@ -85,8 +85,14 @@ Route::get('/plats', [PlatController::class, 'plats']);
 //Afficher un plat
 Route::get('/plat/{id}', [PlatController::class, 'plat']);
 
+//Liste des plats recommandés
+Route::get('/plats/recommandes', [PlatController::class, 'plat_recommande']);
+
 //Afficher un marchand
 Route::get('/marchand/{id}', [MarchandController::class, 'marchand']);
+
+//Afficher les plats disponibles du marchand
+Route::get('/plat/diponibles/marchand/{id}', [MarchandController::class, 'plat_disponible']);
 
 //Localite
 Route::middleware('auth:admin')->group(function(){

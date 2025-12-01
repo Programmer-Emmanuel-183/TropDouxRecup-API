@@ -20,8 +20,8 @@ return new class extends Migration
             $table->integer('prix_origine');
             $table->integer('prix_reduit');
             $table->integer('quantite_plat');
+            $table->integer('quantite_disponible');
             $table->boolean('is_active')->default(true);
-            $table->boolean('is_finish')->default(false);
             $table->timestamps();
 
             $table->uuid('id_marchand');

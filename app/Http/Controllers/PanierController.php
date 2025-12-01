@@ -39,7 +39,7 @@ class PanierController extends Controller
                     'message' => 'Plat non trouvé'
                 ],404);
             }
-            if($plat->quantite_plat < $request->quantite){
+            if($plat->quantite_disponible < $request->quantite){
                 return response()->json([
                     'success' => false,
                     'message' => 'Vous ne pouvez pas ajouter plus que la quantité disponible du plat au panier'
@@ -96,15 +96,17 @@ class PanierController extends Controller
                     'message' => 'Panier vide'
                 ], 200);
             }
-
-            $platsData = [];
+            $groupes = [];
             $totalOrigine = 0;
             $totalReduit = 0;
 
             foreach ($panier as $item) {
-                $plat = Plat::find($item->id_plat);
 
+                $plat = Plat::with('marchand')->find($item->id_plat);
                 if (!$plat) continue;
+
+                $marchandId = $plat->marchand->id;
+                $marchandNom = $plat->marchand->nom_marchand;
 
                 $prixOrigine = $plat->prix_origine * $item->quantite;
                 $prixReduit = $plat->prix_reduit * $item->quantite;
@@ -112,14 +114,22 @@ class PanierController extends Controller
                 $totalOrigine += $prixOrigine;
                 $totalReduit += $prixReduit;
 
-                $platsData[] = [
+                if (!isset($groupes[$marchandId])) {
+                    $groupes[$marchandId] = [
+                        'marchand_id' => $marchandId,
+                        'marchand_nom' => $marchandNom,
+                        'plats' => []
+                    ];
+                }
+
+                $groupes[$marchandId]['plats'][] = [
                     'id_item' => $item->id,
                     'id_plat' => $plat->id,
                     'nom_plat' => $plat->nom_plat,
-                    'nom_marchand' => $plat->marchand->nom_marchand,
                     'image' => $plat->image_couverture,
                     'quantite' => $item->quantite,
                     'prix' => $plat->prix_reduit,
+                    // 'prix_total' => $prixReduit
                 ];
             }
 
@@ -128,12 +138,11 @@ class PanierController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'plats' => $platsData,
-
+                    'items' => array_values($groupes), 
                     'bilan' => [
-                        'total' => $totalOrigine,         
-                        'economies' => $totalEconomies, 
-                        'total_a_payer' => $totalReduit     
+                        'total' => $totalOrigine,
+                        'economies' => $totalEconomies,
+                        'total_a_payer' => $totalReduit
                     ]
                 ],
                 'message' => 'Panier récupéré avec succès.'
@@ -147,6 +156,7 @@ class PanierController extends Controller
             ], 500);
         }
     }
+
 
     public function delete_plat(Request $request, $id_item){
         try{

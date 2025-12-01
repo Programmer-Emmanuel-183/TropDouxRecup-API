@@ -22,7 +22,6 @@ class PlatController extends Controller
             'prix_reduit' => 'required|lt:prix_origine',
             'quantite_plat' => 'required|min:1',
             'is_active' => 'nullable|boolean',
-            'is_finish' => 'nullable|boolean',
             'id_categorie' => 'required',
         ]);
         if($validator->fails()){
@@ -66,14 +65,8 @@ class PlatController extends Controller
             $plat->prix_origine = $request->prix_origine;
             $plat->prix_reduit = $request->prix_reduit;
             $plat->quantite_plat = $request->quantite_plat;
-            if($request->is_active == true){
-                $plat->is_active = $request->is_active;
-                $plat->is_finish = false;
-            }
-            if($request->is_finish == true){
-                $plat->is_active = false;
-                $plat->is_finish = $request->is_finish;
-            }
+            $plat->quantite_disponible = $request->quantite_plat;
+            $plat->is_active = $request->is_active ?? true;
             $plat->id_categorie = $categorie->id;
             $plat->id_marchand = $user->id;
             $plat->save();
@@ -89,6 +82,7 @@ class PlatController extends Controller
                     'prix_origine' => $plat->prix_origine,
                     'prix_reduit' => $plat->prix_reduit,
                     'quantite_plat' => $plat->quantite_plat,
+                    'quantite_disponible' => $plat->quantite_disponible,
                     'is_active' => $plat->is_active,
                     'is_finish' => $plat->is_finish,
                     'categorie' => [
@@ -127,8 +121,6 @@ class PlatController extends Controller
                 $query->where('is_active', true);
             } elseif ($statut === 'inactif') {
                 $query->where('is_active', false);
-            } elseif ($statut === 'epuise') {
-                $query->where('is_finish', true);
             }
 
 
@@ -156,7 +148,8 @@ class PlatController extends Controller
                     'prix_origine' => $plat->prix_origine,
                     'prix_reduit' => $plat->prix_reduit,
                     'quantite_plat' => $plat->quantite_plat,
-                    'statut' => $plat->is_finish ? 'epuise' : ($plat->is_active ? 'actif' : 'inactif'),
+                    'quantite_disponible' => $plat->quantite_disponible,
+                    'statut' => $plat->is_active ? 'actif' : 'inactif',
                     'reduction' => "-" . round($reduction, 2) . "%",
                     'marchand' => $user->nom_marchand
                 ];
@@ -184,7 +177,7 @@ class PlatController extends Controller
             $end = $request->query('end');
 
             $query = Plat::with(['categorie', 'marchand'])
-                ->where('is_active', true);
+                ->where('is_active', true)->whereNot('quantite_disponible', 0);
 
             if (!is_null($begin) && !is_null($end)) {
                 $query->whereBetween('prix_reduit', [(int)$begin, (int)$end]);
@@ -210,6 +203,7 @@ class PlatController extends Controller
                     'prix_origine' => $plat->prix_origine,
                     'prix_reduit' => $plat->prix_reduit,
                     'quantite_plat' => $plat->quantite_plat,
+                    'quantite_disponible' => $plat->quantite_disponible,
                     // 'is_active' => $plat->is_active,
                     // 'is_finish' => $plat->is_finish,
                     // 'categorie' => [
@@ -247,16 +241,17 @@ class PlatController extends Controller
                 ], 404);
             }
 
-            $recommandations = Plat::inRandomOrder()->limit(10)->get()->map(function ($item) {
-                return [
-                    'id' => $item->id,
-                    'nom_plat' => $item->nom_plat,
-                    'image_couverture' => $item->image_couverture,
-                    'quantite_plat' => $item->quantite_plat,
-                    'prix_origine' => $item->prix_origine,
-                    'prix_reduit' => $item->prix_reduit,
-                ];
-            });
+            // $recommandations = Plat::inRandomOrder()->limit(10)->get()->map(function ($item) {
+            //     return [
+            //         'id' => $item->id,
+            //         'nom_plat' => $item->nom_plat,
+            //         'image_couverture' => $item->image_couverture,
+            //         'quantite_plat' => $item->quantite_plat,
+            //         'quantite_disponible' => $item->quantite_disponible,
+            //         'prix_origine' => $item->prix_origine,
+            //         'prix_reduit' => $item->prix_reduit,
+            //     ];
+            // });
 
             return response()->json([
                 'success' => true,
@@ -268,7 +263,8 @@ class PlatController extends Controller
                     'autre_image' => $plat->image_plat,
                     'prix' => $plat->prix_reduit,
                     'quantite_plat' => $plat->quantite_plat,
-                    'recommandation' => $recommandations
+                    'quantite_disponible' => $plat->quantite_disponible,
+                    // 'recommandation' => $recommandations
                 ]
             ], 200);
 
@@ -278,6 +274,43 @@ class PlatController extends Controller
                 'message' => 'Erreur lors de l’affichage du plat',
                 'erreur' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    public function plat_recommande(Request $request){
+        try{
+            $recommandations = Plat::inRandomOrder()->limit(10)->get()->map(function ($item) {
+                return [
+                    'id' => $item->id,
+                    'nom_plat' => $item->nom_plat,
+                    'image_couverture' => $item->image_couverture,
+                    'quantite_plat' => $item->quantite_plat,
+                    // 'quantite_disponible' => $item->quantite_disponible,
+                    'prix_origine' => $item->prix_origine,
+                    'prix_reduit' => $item->prix_reduit,
+                ];
+            });
+
+            if($recommandations->isEmpty()){
+                return response()->json([
+                    'success' => true,
+                    'data' => [],
+                    'message' => 'Aucune drecommandations'
+                ],200);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $recommandations,
+                'message' => 'Liste des recommandations affichées avec succès'
+            ],200);
+        }
+        catch(QueryException $e){
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l’affichage des recommandations',
+                'erreur' => $e->getMessage()
+            ],500);
         }
     }
 
@@ -334,6 +367,7 @@ class PlatController extends Controller
             'prix_origine' => 'required',
             'prix_reduit' => 'required|lt:prix_origine',
             'quantite_plat' => 'required|min:1',
+            'quantite_disponible' => 'required|min:1',
             'is_active' => 'nullable|boolean',
             'is_finish' => 'nullable|boolean',
             'id_categorie' => 'required',
@@ -343,6 +377,13 @@ class PlatController extends Controller
                 'success' => false,
                 'message' => $validator->errors()->first()
             ],422);
+        }
+
+        if($request->quantite_disponible > $request->quantite_plat){
+            return response()->json([
+                'success' => false,
+                'message' => 'La quantité disponible doit être inférieure ou égale à la quantité totale.'
+            ],400);
         }
 
         try{
@@ -385,14 +426,8 @@ class PlatController extends Controller
             $plat->prix_origine = $request->prix_origine ?? $plat->prix_origine;
             $plat->prix_reduit = $request->prix_reduit ?? $plat->prix_reduit;
             $plat->quantite_plat = $request->quantite_plat ?? $plat->quantite_plat;
-            if($request->is_active == true){
-                $plat->is_active = $request->is_active;
-                $plat->is_finish = false;
-            }
-            if($request->is_finish == true){
-                $plat->is_active = false;
-                $plat->is_finish = $request->is_finish;
-            }
+            $plat->quantite_disponible = $request->quantite_disponible ?? $plat->quantite_disponible;
+            $plat->is_active = $request->is_active ?? $plat->is_active;
             $plat->id_categorie = $categorie->id ?? $plat->id_categorie;
             $plat->save();
 
@@ -407,6 +442,7 @@ class PlatController extends Controller
                     'prix_origine' => $plat->prix_origine,
                     'prix_reduit' => $plat->prix_reduit,
                     'quantite_plat' => $plat->quantite_plat,
+                    'quantite_disponible' => $plat->quantite_disponible,
                     'is_active' => $plat->is_active,
                     'is_finish' => $plat->is_finish,
                     'categorie' => [
