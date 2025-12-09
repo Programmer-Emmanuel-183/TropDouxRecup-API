@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Abonnement;
 use App\Models\Admin;
 use App\Models\Avantage;
+use App\Models\Commission;
 use App\Models\Commune;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -25,7 +26,8 @@ class DatabaseSeeder extends Seeder
         //Ajout avantage
         $avantage = new Avantage();
         $avantage->id = Str::uuid();
-        $avantage->nom_avantage = "5 plats par jours.";
+        $avantage->nom_avantage = "Plats par jour";
+        $avantage->value = 5;
         $avantage->save();
         $this->command->info("     - Avantage créé");
 
@@ -85,5 +87,12 @@ class DatabaseSeeder extends Seeder
         $admin->role = 2;
         $admin->save();
         $this->command->info("     - Super Admin créé");
+
+        //Commission par défaut
+        $commission = new Commission();
+        $commission->id = (string) Str::uuid();
+        $commission->pourcentage = 10;
+        $commission->save();
+        $this->command->info("     - Commission crée");
     }
 }

@@ -4,6 +4,8 @@ use App\Http\Controllers\AbonnementController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AvantageController;
 use App\Http\Controllers\CategorieController;
+use App\Http\Controllers\CommandeController;
+use App\Http\Controllers\CommissionController;
 use App\Http\Controllers\LocaliteController;
 use App\Http\Controllers\MarchandController;
 use App\Http\Controllers\PanierController;
@@ -75,6 +77,7 @@ Route::get('/categorie/{id}', [CategorieController::class, 'categorie']);
 //Plat
 Route::middleware('auth:marchand')->group(function(){
     Route::post('/ajout/plat', [PlatController::class, 'ajout_plat']);
+    Route::post('/dupliquer/plat/{id}', [PlatController::class, 'duplicate_plat']);
     Route::get('/plat/marchand', [PlatController::class, 'plat_marchand']);
     Route::post('/delete/plat/{id}', [PlatController::class, 'delete_plat']);
     Route::post('/update/plat/{id}', [PlatController::class, 'update_plat']);
@@ -110,4 +113,21 @@ Route::middleware('auth:client')->group(function(){
     Route::post('/ajout/panier', [PanierController::class, 'ajout_panier']);
     Route::get('/panier', [PanierController::class, 'panier']);
     Route::post('/delete/plat/panier/{id_item}', [PanierController::class, 'delete_plat']);
+});
+
+//Commission
+Route::post('/update/commission', [CommissionController::class, 'commission_update']);
+//Afficher la commission
+Route::get('/commission', [CommissionController::class, 'commission']);
+
+//Commande
+Route::middleware('auth:client')->group(function(){
+    Route::post('/passer/commande', [CommandeController::class, 'passer_commande']);
+    Route::get('/commandes/client', [CommandeController::class, 'commandes_client']);
+});
+//Commandes du marchand
+Route::middleware('auth:marchand')->group(function(){
+    Route::get('/commandes/marchand', [CommandeController::class, 'commandes_marchand']);
+    Route::post('/marquer/recuperer', [CommandeController::class, 'marquer_comme_recupere']);
+    Route::get('/commande/{code_commande}', [CommandeController::class, 'sous_commandes_par_code']);
 });

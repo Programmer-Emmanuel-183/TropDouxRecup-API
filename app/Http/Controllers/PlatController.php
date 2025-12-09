@@ -9,6 +9,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
 
+use function Symfony\Component\Clock\now;
+
 class PlatController extends Controller
 {
     public function ajout_plat(Request $request){
@@ -84,7 +86,7 @@ class PlatController extends Controller
                     'quantite_plat' => $plat->quantite_plat,
                     'quantite_disponible' => $plat->quantite_disponible,
                     'is_active' => $plat->is_active,
-                    'is_finish' => $plat->is_finish,
+                    // 'is_finish' => $plat->is_finish,
                     'categorie' => [
                         'nom_categorie' => $categorie->nom_categorie,
                         'image_categorie' => $categorie->image_categorie
@@ -115,7 +117,7 @@ class PlatController extends Controller
 
             $statut = $request->query('statut');
 
-            $query = Plat::where('id_marchand', $user->id);
+            $query = Plat::where('id_marchand', $user->id)->orderBy('created_at', 'desc');
 
             if ($statut === 'actif') {
                 $query->where('is_active', true);
@@ -260,10 +262,17 @@ class PlatController extends Controller
                     'nom_plat' => $plat->nom_plat,
                     'description_plat' => $plat->description_plat,
                     'image_couverture' => $plat->image_couverture,
-                    'autre_image' => $plat->image_plat,
-                    'prix' => $plat->prix_reduit,
+                    'autre_image' => $plat->autre_image ?? [],
+                    'prix_origine' => $plat->prix_origine,
+                    'prix_reduit' => $plat->prix_reduit,
                     'quantite_plat' => $plat->quantite_plat,
                     'quantite_disponible' => $plat->quantite_disponible,
+                    'statut' => $plat->is_active == 1 ? 'actif' : 'inactif',
+                    'categorie' => $plat->categorie ? [
+                        'id_categorie' => $plat->categorie->id,
+                        'nom_categorie' => $plat->categorie->nom_categorie,
+                        'image_categorie' => $plat->categorie->image_categorie
+                    ] : null,
                     // 'recommandation' => $recommandations
                 ]
             ], 200);
@@ -369,7 +378,7 @@ class PlatController extends Controller
             'quantite_plat' => 'required|min:1',
             'quantite_disponible' => 'required|min:1',
             'is_active' => 'nullable|boolean',
-            'is_finish' => 'nullable|boolean',
+            // 'is_finish' => 'nullable|boolean',
             'id_categorie' => 'required',
         ]);
         if($validator->fails()){
@@ -458,6 +467,57 @@ class PlatController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la modification du plat',
+                'erreur' => $e->getMessage()
+            ],500);
+        }
+    }
+
+    public function duplicate_plat(Request $request, $id){
+        try{
+            $plat = Plat::find($id);
+            $marchand = $request->user();
+            if(!$plat){
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Plat non trouvé'
+                ],404);
+            }
+            if($plat->id_marchand != $marchand->id){
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ce plat ne vous appartient pas ! Vous ne pouvez pas le dupliquer'
+                ],403);
+            }
+            $duplicate = $plat->replicate();
+            $duplicate->created_at = now();
+            $duplicate->updated_at = now();
+            $duplicate->save();
+             return response()->json([
+                'success' => true,
+                'data' => [
+                    'id' => $duplicate->id,
+                    'nom_plat' => $duplicate->nom_plat,
+                    'description_plat' => $duplicate->description_plat,
+                    'image_couverture' => $duplicate->image_couverture,
+                    'autre_image' => $duplicate->autre_image,
+                    'prix_origine' => $duplicate->prix_origine,
+                    'prix_reduit' => $duplicate->prix_reduit,
+                    'quantite_plat' => $duplicate->quantite_plat,
+                    'quantite_disponible' => $duplicate->quantite_disponible,
+                    'is_active' => $duplicate->is_active,
+                    'categorie' => [
+                        'nom_categorie' => $duplicate->categorie->nom_categorie,
+                        'image_categorie' => $duplicate->categorie->image_categorie
+                    ],
+                    'marchand' => $duplicate->marchand->nom_marchand
+                ],
+                'message' => 'Plat dupliqué avec succès'
+             ],200);
+        }
+        catch(QueryException $e){
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la duplication du plat',
                 'erreur' => $e->getMessage()
             ],500);
         }
