@@ -372,7 +372,7 @@ class PlatController extends Controller
             'description_plat' => 'required',
             'image_couverture' => 'image|mimes:jpeg,png,jpg|max:2048',
             'autre_image' => 'nullable|array',
-            'autre_image.*' => 'image|mimes:jpeg,png,jpg|max:2048',
+            'autre_image.*' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'prix_origine' => 'required',
             'prix_reduit' => 'required|lt:prix_origine',
             'quantite_plat' => 'required|min:1',
