@@ -128,8 +128,8 @@ class CategorieController extends Controller
 
     public function update_categorie(Request $request, $id){
         $validator = Validator::make($request->all(),[
-            'nom_categorie' => 'required',
-            'image_categorie' => 'required|image|mimes:jpeg,png,jpg|max:2048'
+            'nom_categorie' => 'string',
+            'image_categorie' => 'image|mimes:jpeg,png,jpg|max:2048'
         ]);
 
         if($validator->fails()){
