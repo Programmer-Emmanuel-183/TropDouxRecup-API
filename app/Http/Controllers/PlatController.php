@@ -269,7 +269,7 @@ class PlatController extends Controller
                     'quantite_disponible' => $plat->quantite_disponible,
                     'statut' => $plat->is_active == 1 ? 'actif' : 'inactif',
                     'categorie' => $plat->categorie ? [
-                        'id_categorie' => $plat->categorie->id,
+                        'id' => $plat->categorie->id,
                         'nom_categorie' => $plat->categorie->nom_categorie,
                         'image_categorie' => $plat->categorie->image_categorie
                     ] : null,
@@ -370,7 +370,7 @@ class PlatController extends Controller
         $validator = Validator::make($request->all(),[
             'nom_plat' => 'required',
             'description_plat' => 'required',
-            'image_couverture' => 'required|image|mimes:jpeg,png,jpg|max:2048',
+            'image_couverture' => 'image|mimes:jpeg,png,jpg|max:2048',
             'autre_image' => 'nullable|array',
             'autre_image.*' => 'image|mimes:jpeg,png,jpg|max:2048',
             'prix_origine' => 'required',
