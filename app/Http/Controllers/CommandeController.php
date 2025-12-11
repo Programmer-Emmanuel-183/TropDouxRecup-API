@@ -218,9 +218,10 @@ class CommandeController extends Controller
 
             if ($sousCommandes->isEmpty()) {
                 return response()->json([
-                    'success' => false,
+                    'success' => true,
+                    'data' => [],
                     'message' => 'Aucune commande trouvée.'
-                ], 404);
+                ], 200);
             }
 
             $grouped = $sousCommandes->groupBy('id_commande');
@@ -275,8 +276,8 @@ class CommandeController extends Controller
                 'data' => $result,
                 'external_data' => [
                     'total_commandes' => count($result),
-                    'total_recuperees' => collect($result)->filter(fn($c) => $c['date_de_recuperation'] !== null)->count(),
-                    'total_en_attente' => collect($result)->filter(fn($c) => $c['date_de_recuperation'] === null)->count(),
+                    'total_recuperees' => collect($sousCommandes)->filter(fn($c) => $c['date_de_recuperation'] !== null)->count(),
+                    'total_en_attente' => collect($sousCommandes)->filter(fn($c) => $c['date_de_recuperation'] === null)->count(),
                 ],
                 'message' => 'Commandes du marchand affiché avec succès'
             ],200);
