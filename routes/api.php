@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AbonnementController;
+use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AvantageController;
 use App\Http\Controllers\CategorieController;
@@ -134,3 +135,6 @@ Route::middleware('auth:marchand')->group(function(){
 
 //Info general du marchand
 Route::get('/general/info', [MarchandController::class, 'general_info'])->middleware('auth:marchand');
+
+//afficher solde du super admin
+Route::get('/solde', [AdminController::class, 'afficher_solde'])->middleware('auth:admin');
