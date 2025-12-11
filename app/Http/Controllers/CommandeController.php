@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Admin;
 use App\Models\Commande;
 use App\Models\Commission;
 use App\Models\Panier;
@@ -52,6 +53,7 @@ class CommandeController extends Controller
 
             $commission = Commission::first();
 
+
             $commande = new Commande();
             $commande->statut = "pending";
             $commande->save();
@@ -90,18 +92,39 @@ class CommandeController extends Controller
             $totalPrice = 0;
             $totalQuantity = 0;
 
-            foreach ($sousCommandes as $s) {
+            $admin = Admin::where('role', 2)->first(); // sortir de la boucle
+
+            foreach ($sousCommandes as $sc) {
+
+                $plat = $sc->plat;
+                $marchand = $plat->marchand;
+
+                $montantTotal = $plat->prix_reduit * $sc->quantite_plat;
+                $commissionAdmin = ($montantTotal * $commission->pourcentage) / 100;
+                $partMarchand = $montantTotal - $commissionAdmin;
+
+                // Mise à jour du solde du marchand
+                $marchand->solde_marchand += $partMarchand;
+                $marchand->save();
+
+                // Mise à jour solde admin
+                $admin->solde += $commissionAdmin;
+
+                // Construire les infos plats pour la réponse JSON
                 $dishes[] = [
-                    'id' => $s->id_plat,
-                    'name' => $s->plat->nom_plat,
-                    'quantity' => $s->quantite_plat,
-                    'unit_price' => $s->plat->prix_reduit,
-                    'code_qr' => $s->code_qr
+                    'id' => $sc->id_plat,
+                    'name' => $sc->plat->nom_plat,
+                    'quantity' => $sc->quantite_plat,
+                    'unit_price' => $sc->plat->prix_reduit,
+                    'code_qr' => $sc->code_qr
                 ];
 
-                $totalPrice += $s->plat->prix_reduit * $s->quantite_plat;
-                $totalQuantity += $s->quantite_plat;
+                $totalPrice += $montantTotal;
+                $totalQuantity += $sc->quantite_plat;
             }
+
+            $admin->save(); // sauvegarde finale (1 seule fois)
+
 
             return response()->json([
                 'id' => $commande->id,

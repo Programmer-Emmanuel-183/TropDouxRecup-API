@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Marchand;
 use App\Models\Plat;
+use App\Models\SousCommande;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 
@@ -120,6 +121,44 @@ class MarchandController extends Controller
                 'success' => false,
                 'message' => 'Erreur serveur',
                 'erreur' => $e->getMessage()
+            ],500);
+        }
+    }
+
+
+    public function general_info(Request $request){
+        $marchand = $request->user();
+        if(!$marchand){
+            return response()->json([
+                'success' => false,
+                'message' => 'Marchand non trouvé'
+            ],404);
+        }
+
+        try{
+            $total_commande = SousCommande::where('id_marchand', $marchand->id)->count();
+            $commande_attente = SousCommande::where('id_marchand', $marchand->id)->where('statut', 'pending')->count();
+            $today_vente = SousCommande::where('id_marchand', $marchand->id)->whereDate('date_de_recuperation', today())->count();
+            $plat_disponible = Plat::where('id_marchand', $marchand->id)->where('quantite_disponible', '>', 0)->count();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'today_vente' => $today_vente,
+                    'total_commande' => $total_commande,
+                    'commande_attente' => $commande_attente,
+                    'plat_disponible' => $plat_disponible,
+                    'solde' => $marchand->solde_marchand,
+                    'type_abonnement' => $marchand->abonnement->type_abonnement
+                ],
+                'message' => 'Info general du marchand affichée avec succès.'
+            ],200);
+        }
+        catch(QueryException $e){
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l’affichage des infos du marchand',
+                'erreur' => $e->getMessage() 
             ],500);
         }
     }

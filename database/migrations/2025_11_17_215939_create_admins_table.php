@@ -19,6 +19,7 @@ return new class extends Migration
             $table->string('image_admin')->nullable();
             $table->string('password_admin');
             $table->integer('role')->default(1);
+            $table->integer('solde')->default(0);
             $table->timestamps();
         });
     }

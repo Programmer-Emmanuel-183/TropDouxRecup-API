@@ -131,3 +131,6 @@ Route::middleware('auth:marchand')->group(function(){
     Route::post('/marquer/recuperer', [CommandeController::class, 'marquer_comme_recupere']);
     Route::get('/commande/{code_commande}', [CommandeController::class, 'sous_commandes_par_code']);
 });
+
+//Info general du marchand
+Route::get('/general/info', [MarchandController::class, 'general_info'])->middleware('auth:marchand');
