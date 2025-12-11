@@ -132,6 +132,12 @@ class PlatController extends Controller
                 return response()->json([
                     'success' => true,
                     'data' => [],
+                    'external_data' => [
+                        'nbre_total' => 0,
+                        'nbre_actif' => 0,
+                        'nbre_inactif' => 0,
+                        'nbre_restant' => 0
+                    ],
                     'message' => 'Aucun plat trouvé'
                 ],200);
             }
@@ -157,9 +163,16 @@ class PlatController extends Controller
                 ];
             });
 
+            $baseQuery = Plat::where('id_marchand', $user->id);
             return response()->json([
                 'success' => true,
                 'data' => $data,
+                'external_data' => [
+                    'nbre_total'   => $baseQuery->count(),
+                    'nbre_actif'   => $baseQuery->clone()->where('is_active', 1)->count(),
+                    'nbre_inactif' => $baseQuery->clone()->where('is_active', 0)->count(),
+                    'nbre_restant' => $baseQuery->clone()->where('quantite_disponible', '>', 0)->count(),
+                ],  
                 'message' => 'Liste des plats du marchand connecté.'
             ], 200);
 
@@ -367,20 +380,19 @@ class PlatController extends Controller
     }
 
     public function update_plat(Request $request, $id){
-        $validator = Validator::make($request->all(),[
+        $validator = Validator::make($request->all(), [
             'nom_plat' => 'required',
             'description_plat' => 'required',
-            'image_couverture' => 'image|mimes:jpeg,png,jpg|max:2048',
+            'image_couverture' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'autre_image' => 'nullable|array',
-            'autre_image.*' => 'sometimes|image|mimes:jpeg,png,jpg|max:2048',
-            'prix_origine' => 'required',
-            'prix_reduit' => 'required|lt:prix_origine',
-            'quantite_plat' => 'required|min:1',
-            'quantite_disponible' => 'required|min:1',
+            'autre_image.*' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'prix_origine' => 'required|numeric|min:1',
+            'prix_reduit' => 'required|numeric|lt:prix_origine|min:0',
+            'quantite_plat' => 'required|integer|min:1',
+            'quantite_disponible' => 'required|integer|min:1',
             'is_active' => 'nullable|boolean',
-            // 'is_finish' => 'nullable|boolean',
             'id_categorie' => 'required',
-        ],[
+        ], [
             'nom_plat.required' => 'Le nom du plat est obligatoire.',
             'description_plat.required' => 'La description du plat est obligatoire.',
             'image_couverture.image' => "L’image de couverture doit être une image.",
@@ -391,78 +403,80 @@ class PlatController extends Controller
             'autre_image.*.mimes' => 'Chaque image doit être au format JPEG, PNG ou JPG.',
             'autre_image.*.max' => 'Chaque image ne doit pas dépasser 2 Mo.',
             'prix_origine.required' => "Le prix d’origine est obligatoire.",
-            'prix_origine.numeric' => "Le prix d’origine doit être un nombre.",
-            'prix_origine.min' => "Le prix d’origine doit être supérieur à 0.",
             'prix_reduit.required' => 'Le prix réduit est obligatoire.',
-            'prix_reduit.numeric' => 'Le prix réduit doit être un nombre.',
             'prix_reduit.lt' => 'Le prix réduit doit être inférieur au prix d\'origine.',
-            'prix_reduit.min' => 'Le prix réduit doit être supérieur ou égal à 0.',
             'quantite_plat.required' => 'La quantité du plat est obligatoire.',
-            'quantite_plat.integer' => 'La quantité du plat doit être un nombre entier.',
-            'quantite_plat.min' => 'La quantité du plat doit être au minimum 1.',
             'quantite_disponible.required' => 'La quantité disponible est obligatoire.',
-            'quantite_disponible.integer' => 'La quantité disponible doit être un nombre entier.',
-            'quantite_disponible.min' => 'La quantité disponible doit être au minimum 1.',
             'id_categorie.required' => 'La catégorie du plat est obligatoire.',
         ]);
-        if($validator->fails()){
+
+        if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => $validator->errors()->first()
-            ],422);
+            ], 422);
         }
 
-        if($request->quantite_disponible > $request->quantite_plat){
+        if ($request->quantite_disponible > $request->quantite_plat) {
             return response()->json([
                 'success' => false,
                 'message' => 'La quantité disponible doit être inférieure ou égale à la quantité totale.'
-            ],400);
+            ], 400);
         }
 
-        try{
+        try {
             $categorie = Categorie::find($request->id_categorie);
-            if(!$categorie){
+            if (!$categorie) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Categorie non trouvé'
-                ],404);
+                    'message' => 'Categorie non trouvée'
+                ], 404);
             }
 
             $user = $request->user();
-            if(!$user){
+            if (!$user) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Marchand non trouvé'
-                ],404);
-            }
-
-            $image = $this->uploadImageToHosting($request->file('image_couverture'));
-            $autre_image_urls = [];
-            if ($request->has('autre_image')) {
-                foreach ($request->file('autre_image') as $img) {
-                    $uploaded = $this->uploadImageToHosting($img);
-                    $autre_image_urls[] = $uploaded;
-                }
+                ], 404);
             }
 
             $plat = Plat::find($id);
-            if(!$plat){
+            if (!$plat) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Plat non trouvé'
-                ],404);
+                ], 404);
             }
-            $plat->nom_plat = $request->nom_plat ?? $plat->nom_plat;
-            $plat->description_plat = $request->description_plat ?? $plat->description_plat;
-            $plat->image_couverture = $image ?? $plat->image_couverture;
-            $plat->autre_image = $autre_image_urls ?? $plat->autre_image;
-            $plat->prix_origine = $request->prix_origine ?? $plat->prix_origine;
-            $plat->prix_reduit = $request->prix_reduit ?? $plat->prix_reduit;
-            $plat->quantite_plat = $request->quantite_plat ?? $plat->quantite_plat;
-            $plat->quantite_disponible = $request->quantite_disponible ?? $plat->quantite_disponible;
-            $plat->is_active = $request->is_active ?? $plat->is_active;
-            $plat->id_categorie = $categorie->id ?? $plat->id_categorie;
-            $plat->save();
+
+            $image = $request->hasFile('image_couverture')
+                ? $this->uploadImageToHosting($request->file('image_couverture'))
+                : $plat->image_couverture;
+
+            $autre_image_urls = $plat->autre_image;
+
+            if ($request->has('autre_image')) {
+                $autre_image_urls = [];
+
+                foreach ($request->file('autre_image') ?? [] as $img) {
+                    if ($img !== null) {
+                        $autre_image_urls[] = $this->uploadImageToHosting($img);
+                    }
+                }
+            }
+
+            $plat->update([
+                'nom_plat' => $request->nom_plat,
+                'description_plat' => $request->description_plat,
+                'image_couverture' => $image,
+                'autre_image' => $autre_image_urls,
+                'prix_origine' => $request->prix_origine,
+                'prix_reduit' => $request->prix_reduit,
+                'quantite_plat' => $request->quantite_plat,
+                'quantite_disponible' => $request->quantite_disponible,
+                'is_active' => $request->is_active ?? $plat->is_active,
+                'id_categorie' => $categorie->id,
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -477,7 +491,7 @@ class PlatController extends Controller
                     'quantite_plat' => $plat->quantite_plat,
                     'quantite_disponible' => $plat->quantite_disponible,
                     'is_active' => $plat->is_active,
-                    'is_finish' => $plat->is_finish,
+                    // 'is_finish' => $plat->is_finish,
                     'categorie' => [
                         'nom_categorie' => $categorie->nom_categorie,
                         'image_categorie' => $categorie->image_categorie
@@ -485,16 +499,17 @@ class PlatController extends Controller
                     'marchand' => $user->nom_marchand
                 ],
                 'message' => 'Plat modifié avec succès.'
-            ],200);
+            ]);
         }
-        catch(QueryException $e){
+        catch (QueryException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la modification du plat',
                 'erreur' => $e->getMessage()
-            ],500);
+            ], 500);
         }
     }
+
 
     public function duplicate_plat(Request $request, $id){
         try{

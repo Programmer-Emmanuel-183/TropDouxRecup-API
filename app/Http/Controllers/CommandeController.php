@@ -273,6 +273,11 @@ class CommandeController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $result,
+                'external_data' => [
+                    'total_commandes' => count($result),
+                    'total_recuperees' => collect($result)->filter(fn($c) => $c['date_de_recuperation'] !== null)->count(),
+                    'total_en_attente' => collect($result)->filter(fn($c) => $c['date_de_recuperation'] === null)->count(),
+                ],
                 'message' => 'Commandes du marchand affiché avec succès'
             ],200);
 
