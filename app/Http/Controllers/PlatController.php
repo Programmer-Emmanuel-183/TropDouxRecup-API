@@ -128,15 +128,17 @@ class PlatController extends Controller
 
             $plats = $query->get();
 
+            $baseQuery = Plat::where('id_marchand', $user->id);
+
             if ($plats->isEmpty()) {
                 return response()->json([
                     'success' => true,
                     'data' => [],
                     'external_data' => [
-                        'nbre_total' => 0,
-                        'nbre_actif' => 0,
-                        'nbre_inactif' => 0,
-                        'nbre_restant' => 0
+                        'nbre_total'   => $baseQuery->count(),
+                        'nbre_actif'   => $baseQuery->clone()->where('is_active', 1)->count(),
+                        'nbre_inactif' => $baseQuery->clone()->where('is_active', 0)->count(),
+                        'nbre_restant' => $baseQuery->clone()->where('quantite_disponible', '>', 0)->count(),
                     ],
                     'message' => 'Aucun plat trouvé'
                 ],200);
@@ -163,7 +165,6 @@ class PlatController extends Controller
                 ];
             });
 
-            $baseQuery = Plat::where('id_marchand', $user->id);
             return response()->json([
                 'success' => true,
                 'data' => $data,
