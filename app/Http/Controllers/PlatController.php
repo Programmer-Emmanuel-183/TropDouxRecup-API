@@ -384,7 +384,7 @@ class PlatController extends Controller
             'nom_plat' => 'required',
             'description_plat' => 'required',
             'image_couverture' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
-            'autre_image' => 'nullable|array',
+            'autre_image' => 'sometimes|nullable|array',
             'autre_image.*' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'prix_origine' => 'required|numeric|min:1',
             'prix_reduit' => 'required|numeric|lt:prix_origine|min:0',
@@ -449,59 +449,49 @@ class PlatController extends Controller
                 ], 404);
             }
 
-            $image = $request->hasFile('image_couverture')
+            $imageCouverture = $request->hasFile('image_couverture')
                 ? $this->uploadImageToHosting($request->file('image_couverture'))
                 : $plat->image_couverture;
 
-            $autre_image_urls = $plat->autre_image;
-
-            if ($request->has('autre_image')) {
-                $autre_image_urls = [];
-
-                foreach ($request->file('autre_image') ?? [] as $img) {
-                    if ($img !== null) {
-                        $autre_image_urls[] = $this->uploadImageToHosting($img);
-                    }
-                }
-            }
-
-            $plat->update([
+            $data = [
                 'nom_plat' => $request->nom_plat,
                 'description_plat' => $request->description_plat,
-                'image_couverture' => $image,
-                'autre_image' => $autre_image_urls,
+                'image_couverture' => $imageCouverture,
                 'prix_origine' => $request->prix_origine,
                 'prix_reduit' => $request->prix_reduit,
                 'quantite_plat' => $request->quantite_plat,
                 'quantite_disponible' => $request->quantite_disponible,
                 'is_active' => $request->is_active ?? $plat->is_active,
                 'id_categorie' => $categorie->id,
-            ]);
+            ];
+
+            if ($request->has('autre_image')) {
+                $files = (array) $request->file('autre_image');
+
+                if (empty(array_filter($files))) {
+                    $data['autre_image'] = null;
+                } else {
+                    $urls = [];
+                    foreach ($files as $img) {
+                        if ($img && $img->isValid()) {
+                            $urls[] = $this->uploadImageToHosting($img);
+                        }
+                    }
+                    if (!empty($urls)) {
+                        $data['autre_image'] = $urls;
+                    }
+                }
+            }
+
+            $plat->update($data);
 
             return response()->json([
                 'success' => true,
-                'data' => [
-                    'id' => $plat->id,
-                    'nom_plat' => $plat->nom_plat,
-                    'description_plat' => $plat->description_plat,
-                    'image_couverture' => $plat->image_couverture,
-                    'autre_image' => $plat->autre_image,
-                    'prix_origine' => $plat->prix_origine,
-                    'prix_reduit' => $plat->prix_reduit,
-                    'quantite_plat' => $plat->quantite_plat,
-                    'quantite_disponible' => $plat->quantite_disponible,
-                    'is_active' => $plat->is_active,
-                    // 'is_finish' => $plat->is_finish,
-                    'categorie' => [
-                        'nom_categorie' => $categorie->nom_categorie,
-                        'image_categorie' => $categorie->image_categorie
-                    ],
-                    'marchand' => $user->nom_marchand
-                ],
+                'data' => $plat->fresh(),
                 'message' => 'Plat modifié avec succès.'
             ]);
-        }
-        catch (QueryException $e) {
+
+        } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la modification du plat',
@@ -509,6 +499,8 @@ class PlatController extends Controller
             ], 500);
         }
     }
+
+
 
 
     public function duplicate_plat(Request $request, $id){
