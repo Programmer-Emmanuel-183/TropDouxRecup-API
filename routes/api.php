@@ -2,11 +2,13 @@
 
 use App\Http\Controllers\AbonnementController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AnalytiqueController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AvantageController;
 use App\Http\Controllers\CategorieController;
 use App\Http\Controllers\CommandeController;
 use App\Http\Controllers\CommissionController;
+use App\Http\Controllers\GestionClientMarchandController;
 use App\Http\Controllers\LocaliteController;
 use App\Http\Controllers\MarchandController;
 use App\Http\Controllers\PanierController;
@@ -138,3 +140,19 @@ Route::get('/general/info', [MarchandController::class, 'general_info'])->middle
 
 //afficher solde du super admin
 Route::get('/solde', [AdminController::class, 'afficher_solde'])->middleware('auth:admin');
+
+//Gestion des utilisateurs (Client et Marchand)
+Route::middleware('auth:admin')->group(function(){
+    //Client
+    Route::get('/clients', [GestionClientMarchandController::class, 'liste_client']);
+    Route::get('/client/{id}', [GestionClientMarchandController::class, 'client']);
+    Route::post('/delete/client/{id}', [GestionClientMarchandController::class, 'delete_client']);
+
+    //Marchand
+    Route::get('/marchands', [GestionClientMarchandController::class, 'liste_marchand']);
+    Route::get('/marchand/{id}', [GestionClientMarchandController::class, 'marchand']);
+    Route::post('/delete/marchand/{id}', [GestionClientMarchandController::class, 'delete_marchand']);
+});
+
+//Analytique marchand
+Route::get('/analytique', [AnalytiqueController::class, 'analytique_marchand'])->middleware('auth:marchand');
