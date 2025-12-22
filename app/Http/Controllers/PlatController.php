@@ -450,6 +450,7 @@ class PlatController extends Controller
                 ], 404);
             }
 
+            // Image couverture
             $imageCouverture = $request->hasFile('image_couverture')
                 ? $this->uploadImageToHosting($request->file('image_couverture'))
                 : $plat->image_couverture;
@@ -466,23 +467,35 @@ class PlatController extends Controller
                 'id_categorie' => $categorie->id,
             ];
 
+            /**
+             * 🔥 LOGIQUE EXACTE POUR autre_image
+             */
             if ($request->has('autre_image')) {
+
                 $files = (array) $request->file('autre_image');
 
-                if (empty(array_filter($files))) {
+                // Cas 1️⃣ : autre_image[] = [null, null] → NULL en BDD
+                if (!empty($files) && empty(array_filter($files))) {
                     $data['autre_image'] = null;
-                } else {
+                }
+
+                // Cas 2️⃣ : fichiers valides → on remplace
+                elseif (!empty(array_filter($files))) {
                     $urls = [];
                     foreach ($files as $img) {
                         if ($img && $img->isValid()) {
                             $urls[] = $this->uploadImageToHosting($img);
                         }
                     }
+
                     if (!empty($urls)) {
                         $data['autre_image'] = $urls;
                     }
                 }
+
+                // Cas 3️⃣ : autre_image = [] → ON NE TOUCHE PAS (aucune affectation)
             }
+            // ❗ Si autre_image n’est PAS dans la requête → inchangé
 
             $plat->update($data);
 
@@ -500,6 +513,7 @@ class PlatController extends Controller
             ], 500);
         }
     }
+
 
 
 
