@@ -17,22 +17,19 @@ class AnalytiqueController extends Controller
             if (!$marchand) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Marchand non authentifié',
+                    'message' => 'Marchand non trouvé',
                     'data' => null
-                ], 401);
+                ], 404);
             }
 
             $marchandId = $marchand->id;
 
-            /* =============================
-             * PÉRIODE
-             * ============================= */
             $startMonth = Carbon::now()->startOfMonth();
             $endMonth   = Carbon::now()->endOfMonth();
 
             /* =============================
-             * REVENU DU MOIS
-             * ============================= */
+            * REVENU DU MOIS
+            * ============================= */
             $revenuMois = DB::table('sous_commandes')
                 ->join('plats', 'plats.id', '=', 'sous_commandes.id_plat')
                 ->where('sous_commandes.id_marchand', $marchandId)
@@ -41,16 +38,16 @@ class AnalytiqueController extends Controller
                 ->sum(DB::raw('plats.prix_reduit * sous_commandes.quantite_plat'));
 
             /* =============================
-             * COMMANDES DU MOIS
-             * ============================= */
+            * COMMANDES DU MOIS
+            * ============================= */
             $commandesMois = DB::table('sous_commandes')
                 ->where('id_marchand', $marchandId)
                 ->whereBetween('created_at', [$startMonth, $endMonth])
                 ->count();
 
             /* =============================
-             * CLIENTS ACTIFS DU MOIS
-             * ============================= */
+            * CLIENTS UNIQUES DU MOIS
+            * ============================= */
             $clientsMois = DB::table('sous_commandes')
                 ->where('id_marchand', $marchandId)
                 ->whereBetween('created_at', [$startMonth, $endMonth])
@@ -58,43 +55,29 @@ class AnalytiqueController extends Controller
                 ->count('id_client');
 
             /* =============================
-             * ÉCONOMIES CLIENTS (JAMAIS NULL)
-             * ============================= */
-            $economies_clients_mois = max(0, $clientsMois);
-
-            /* =============================
-             * DASHBOARD DATAS
-             * ============================= */
+            * DASHBOARD
+            * ============================= */
             $dashboard_datas = [
                 [
                     'id' => '1',
                     'type' => 'revenu',
                     'libelle' => 'Revenu du mois',
                     'value' => number_format($revenuMois, 0, ',', ' ') . ' FCFA',
-                    'monthly_progress' => $revenuMois > 0 ? [
-                        'evolution' => 0,
-                        'evolution_value' => 0
-                    ] : null
+                    'monthly_progress' => null
                 ],
                 [
                     'id' => '2',
                     'type' => 'commande',
                     'libelle' => 'Commandes du mois',
                     'value' => (string) $commandesMois,
-                    'monthly_progress' => $commandesMois > 0 ? [
-                        'evolution' => 0,
-                        'evolution_value' => 0
-                    ] : null
+                    'monthly_progress' => null
                 ],
                 [
                     'id' => '3',
                     'type' => 'client',
                     'libelle' => 'Clients actifs',
                     'value' => (string) $clientsMois,
-                    'monthly_progress' => $clientsMois > 0 ? [
-                        'evolution' => 0,
-                        'evolution_value' => 0
-                    ] : null
+                    'monthly_progress' => null
                 ],
                 [
                     'id' => '4',
@@ -106,80 +89,112 @@ class AnalytiqueController extends Controller
             ];
 
             /* =============================
-             * STATISTICS DATAS (7 JOURS FR)
-             * ============================= */
+            * STATISTICS DATAS (7 JOURS)
+            * ============================= */
             $jours = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
-            $statistics_datas = [];
 
-            foreach ($jours as $jour) {
-                $statistics_datas[$jour] = [
+            $statistics_datas = collect($jours)->map(function ($jour, $index) {
+                return [
+                    'id' => (string) ($index + 1),
                     'day' => $jour,
                     'revenu' => 0,
                     'progression_percent' => 0
                 ];
-            }
+            });
 
             $startWeek = Carbon::now()->startOfWeek(Carbon::MONDAY);
             $endWeek   = Carbon::now()->endOfWeek(Carbon::SUNDAY);
 
-            $ventesSemaine = DB::table('sous_commandes')
+            $revenusSemaine = DB::table('sous_commandes')
                 ->join('plats', 'plats.id', '=', 'sous_commandes.id_plat')
-                ->select(
-                    DB::raw('DATE(sous_commandes.created_at) as date'),
-                    DB::raw('SUM(plats.prix_reduit * sous_commandes.quantite_plat) as total')
-                )
+                ->selectRaw('
+                    DATE(sous_commandes.created_at) as day,
+                    SUM(plats.prix_reduit * sous_commandes.quantite_plat) as revenu
+                ')
                 ->where('sous_commandes.id_marchand', $marchandId)
                 ->where('sous_commandes.statut', 'complete')
                 ->whereBetween('sous_commandes.created_at', [$startWeek, $endWeek])
-                ->groupBy(DB::raw('DATE(sous_commandes.created_at)'))
+                ->groupBy('day')
                 ->get();
 
-            foreach ($ventesSemaine as $vente) {
-                $dayIndex = Carbon::parse($vente->date)->dayOfWeekIso; // 1 (lun) → 7 (dim)
-                $jour = $jours[$dayIndex - 1];
-
-                $statistics_datas[$jour]['revenu'] = (int) $vente->total;
+            foreach ($revenusSemaine as $item) {
+                $dayIndex = Carbon::parse($item->day)->dayOfWeekIso - 1; // 0 = lun
+                if (isset($statistics_datas[$dayIndex])) {
+                    $statistics_datas[$dayIndex]['revenu'] = (int) $item->revenu;
+                }
             }
 
-            $statistics_datas = array_values($statistics_datas);
-
             /* =============================
-             * PIE DATAS
-             * ============================= */
-            $pie_datas = DB::table('sous_commandes')
+            * PIE DATAS (GRAPH CIRCULAIRE)
+            * ============================= */
+            $totalQuantite = DB::table('sous_commandes')
+                ->where('id_marchand', $marchandId)
+                ->sum('quantite_plat');
+
+            $pie_raw = DB::table('sous_commandes')
                 ->join('plats', 'plats.id', '=', 'sous_commandes.id_plat')
                 ->select(
-                    'plats.nom',
+                    'plats.nom_plat',
                     DB::raw('SUM(sous_commandes.quantite_plat) as total')
                 )
                 ->where('sous_commandes.id_marchand', $marchandId)
-                ->where('sous_commandes.statut', 'complete')
-                ->whereBetween('sous_commandes.created_at', [$startMonth, $endMonth])
-                ->groupBy('plats.nom')
+                ->groupBy('plats.nom_plat')
+                ->orderByDesc('total')
+                ->limit(5)
                 ->get();
 
-            $pie_datas = $pie_datas->count() > 0 ? $pie_datas : null;
+            $pie_datas = $pie_raw->count() > 0
+                ? $pie_raw->map(function ($item, $index) use ($totalQuantite) {
+                    return [
+                        'id' => (string) ($index + 1),
+                        'nom_plat' => $item->nom_plat,
+                        'percent_value' => $totalQuantite > 0
+                            ? round(($item->total / $totalQuantite) * 100)
+                            : 0
+                    ];
+                })
+                : null;
 
             /* =============================
-             * RESPONSE
-             * ============================= */
+            * MEILLEUR JOUR
+            * ============================= */
+            $bestDay = DB::table('sous_commandes')
+                ->join('plats', 'plats.id', '=', 'sous_commandes.id_plat')
+                ->selectRaw('
+                    DATE(sous_commandes.created_at) as day,
+                    COUNT(*) as order_count,
+                    SUM(plats.prix_reduit * sous_commandes.quantite_plat) as revenu
+                ')
+                ->where('sous_commandes.id_marchand', $marchandId)
+                ->where('sous_commandes.statut', 'complete')
+                ->groupBy('day')
+                ->orderByDesc('revenu')
+                ->first();
+
             return response()->json([
                 'success' => true,
-                'message' => 'Statistiques marchand',
+                'message' => 'Analytique du marchand récupérée avec succès',
                 'data' => [
                     'dashboard_datas' => $dashboard_datas,
-                    'statistics_datas' => $statistics_datas,
+                    'statistics_datas' => $statistics_datas->values(),
                     'pie_datas' => $pie_datas,
-                    'economies_clients_mois' => $economies_clients_mois
+                    'economies_clients_mois' => max(0, $clientsMois),
+                    'best_day' => $bestDay ? [
+                        'day' => Carbon::parse($bestDay->day)->translatedFormat('l'),
+                        'revenu' => (int) $bestDay->revenu,
+                        'order_count' => (int) $bestDay->order_count
+                    ] : null
                 ]
             ], 200);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur serveur',
+                'message' => 'Erreur lors de l’analytique du marchand',
+                'data' => null,
                 'error' => $e->getMessage()
             ], 500);
         }
     }
+
 }
