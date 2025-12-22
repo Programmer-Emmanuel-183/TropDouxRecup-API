@@ -664,6 +664,172 @@ class AuthController extends Controller
         }
     }
 
+    public function ajout_sub_admin(Request $request){
+        $validator = Validator::make($request->all(),[
+            'nom_admin' => 'required',
+            'email_admin' => 'required|email:admins',
+            'tel_admin' => 'required|digits:10', 
+        ]);
+
+        if($validator->fails()){
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first()
+            ],422);
+        }
+
+        try{
+            $user = $request->user();
+            if(!$user || $user->role != 2){
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Super admin non trouvé ou accès non autorisé'
+                ],403);
+            }
+
+            $admin = new Admin();
+            $admin->nom_admin = $request->nom_admin;
+            $admin->email_admin = $request->email_admin;
+            $admin->tel_admin = $request->tel_admin;
+            $admin->role = 1;
+            $admin->password_admin = Hash::make('admin' . substr($admin->tel_admin, 4));
+            $admin->save();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'id' => $admin->id,
+                    'nom' => $admin->nom_admin,
+                    'email' => $admin->email_admin,
+                    'telephone' => $admin->tel_admin,
+                    'image_profil' => $admin->image_admin,
+                    'role' => $admin->role, 
+                ],
+                'message' => 'Sous admin créé avec succès.'
+            ],200);
+        }
+        catch(QueryException $e){
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l’ajout de sous administrateur',
+                'erreur' => $e->getMessage()
+            ],500);
+        }
+    }
+
+    public function admins(Request $request){
+        try{
+            $user = $request->user();
+            if(!$user || $user->role != 2){
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Super admin non trouvé ou accès non autorisé'
+                ],403);
+            }
+
+            $admins = Admin::where('role', 1)->orderBy('created_at', 'desc')->get();
+            $data = $admins->map(function($admin){
+                return [
+                    'id' => $admin->id,
+                    'nom' => $admin->nom_admin,
+                    'email' => $admin->email_admin,
+                    'telephone' => $admin->tel_admin,
+                    'image_profil' => $admin->image_admin,
+                    'role' => $admin->role, 
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $data,
+                'message' => 'Liste des sous administrateurs affichée avec succès'
+            ],200);
+        }
+        catch(QueryException $e){
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l’affichage de la liste des sous administrateurs',
+                'erreur' => $e->getMessage()
+            ],500);
+        }
+    }
+
+    public function admin(Request $request, $id){
+        try{
+            $user = $request->user();
+            if(!$user || $user->role != 2){
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Super admin non trouvé ou accès non autorisé'
+                ],403);
+            }
+            
+            $admin = Admin::find($id);
+            if(!$admin){
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Sous admin introuvable'
+                ],404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'id' => $admin->id,
+                    'nom' => $admin->nom_admin,
+                    'email' => $admin->email_admin,
+                    'telephone' => $admin->tel_admin,
+                    'image_profil' => $admin->image_admin,
+                    'role' => $admin->role,
+                ],
+                'message' => 'Sous administrateur affiché avec succès'
+            ],200);
+
+        }
+        catch(QueryException $e){
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l’affichage du sous administrateur',
+                'erreur' => $e->getMessage()
+            ],500);
+        }
+    }
+
+    public function delete_admin(Request $request, $id){
+        try{
+            $user = $request->user();
+            if(!$user || $user->role != 2){
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Super admin non trouvé ou accès non autorisé'
+                ],403);
+            }
+
+            $admin = Admin::find($id);
+            if(!$admin){
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Sous admin introuvable'
+                ],404);
+            }
+
+            $admin->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Sous administrateur supprimé avec succès'
+            ],200);
+
+        }
+        catch(QueryException $e){
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la suppression du sous administrateur',
+                'erreur' => $e->getMessage()
+            ],500);
+        }
+    }
+
 
 
 }

@@ -156,3 +156,14 @@ Route::middleware('auth:admin')->group(function(){
 
 //Analytique marchand
 Route::get('/analytique', [AnalytiqueController::class, 'analytique_marchand'])->middleware('auth:marchand');
+
+//Gestion de sous administrateur
+Route::middleware('auth:admin')->group(function(){
+    Route::post('/ajout/sous/admin', [AuthController::class, 'ajout_sub_admin']);
+    Route::get('/admins', [AuthController::class, 'admins']);
+    Route::get('/admin/{id}', [AuthController::class, 'admin']);
+    Route::post('/delete/admin/{id}', [AuthController::class, 'delete_admin']);
+});
+
+//Affichage de toutes les commandes
+Route::get('/commandes', [CommandeController::class, 'liste_commandes'])->middleware('auth:admin');

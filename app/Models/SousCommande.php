@@ -49,4 +49,8 @@ class SousCommande extends Model
     public function client(){
         return $this->belongsTo(User::class, 'id_client');
     }
+
+    public function commande(){
+        return $this->belongsTo(Commande::class, 'id_commande');
+    }
 }

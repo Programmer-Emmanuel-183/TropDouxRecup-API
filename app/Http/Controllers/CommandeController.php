@@ -493,5 +493,110 @@ class CommandeController extends Controller
     }
 
 
+    public function liste_commandes(Request $request){
+        try {
+
+            $sousCommandes = SousCommande::with([
+                    'plat.marchand',
+                    'client',
+                    'commande'
+                ])
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            if ($sousCommandes->isEmpty()) {
+                return response()->json([
+                    'success' => true,
+                    'data' => [],
+                    'message' => 'Aucune commande trouvée.'
+                ], 200);
+            }
+
+            $grouped = $sousCommandes->groupBy('id_commande');
+            $result = [];
+
+            foreach ($grouped as $commandeId => $items) {
+
+                $commande = $items->first()->commande;
+                $client = $items->first()->client;
+                $commission = $items->first()->commission ?? 0;
+
+                $dishes = [];
+                $marchands = [];
+                $totalPrice = 0;
+                $totalQuantity = 0;
+
+                foreach ($items as $s) {
+
+                    $montant = $s->plat->prix_reduit * $s->quantite_plat;
+                    $totalPrice += $montant;
+                    $totalQuantity += $s->quantite_plat;
+
+                    $marchand = $s->plat->marchand;
+
+                    if (!isset($marchands[$marchand->id])) {
+                        $marchands[$marchand->id] = [
+                            'id' => $marchand->id,
+                            'nom' => $marchand->nom_marchand,
+                            'telephone' => $marchand->tel_marchand ?? '',
+                            'total_marchand' => 0
+                        ];
+                    }
+
+                    $marchands[$marchand->id]['total_marchand'] += $montant;
+
+                    $dishes[] = [
+                        'id' => $s->id_plat,
+                        'name' => $s->plat->nom_plat,
+                        'quantity' => $s->quantite_plat,
+                        'unit_price' => $s->plat->prix_reduit,
+                        'code_qr' => $s->code_qr
+                    ];
+                }
+
+                $allRecovered = $items->every(fn ($i) => $i->date_de_recuperation !== null);
+
+                $completedAt = $allRecovered
+                    ? \Carbon\Carbon::parse($items->max('date_de_recuperation'))->toISOString()
+                    : null;
+
+                $result[] = [
+                    'id' => $commande->id,
+                    'orderId' => $items->first()->code_commande,
+                    'customerName' => $client->nom_client,
+                    'status' => $commande->statut,
+                    'createdAt' => $commande->created_at,
+                    'commission' => $commission,
+                    'totalPriceOrder' => $totalPrice,
+                    'orderLength' => $totalQuantity,
+                    'completedAt' => $completedAt,
+                    'client' => [
+                        'id' => $client->id,
+                        'nom' => $client->nom_client,
+                        'prenom' => $client->prenom_client ?? '',
+                        'telephone' => $client->tel_client ?? ''
+                    ],
+                    'marchands' => array_values($marchands),
+                    'dishes' => $dishes
+                ];
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $result,
+                'message' => 'Liste des commandes'
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l’affichage de toutes les commandes',
+                'erreur' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+
 
 }
