@@ -38,16 +38,13 @@ class AnalytiqueController extends Controller
                 ->sum(DB::raw('plats.prix_reduit * sous_commandes.quantite_plat'));
 
             /* =============================
-            * COMMANDES DU MOIS
+            * COMMANDES & CLIENTS
             * ============================= */
             $commandesMois = DB::table('sous_commandes')
                 ->where('id_marchand', $marchandId)
                 ->whereBetween('created_at', [$startMonth, $endMonth])
                 ->count();
 
-            /* =============================
-            * CLIENTS UNIQUES DU MOIS
-            * ============================= */
             $clientsMois = DB::table('sous_commandes')
                 ->where('id_marchand', $marchandId)
                 ->whereBetween('created_at', [$startMonth, $endMonth])
@@ -55,7 +52,7 @@ class AnalytiqueController extends Controller
                 ->count('id_client');
 
             /* =============================
-            * DASHBOARD
+            * DASHBOARD (CONTRAT RESPECTÉ)
             * ============================= */
             $dashboard_datas = [
                 [
@@ -63,82 +60,109 @@ class AnalytiqueController extends Controller
                     'type' => 'revenu',
                     'libelle' => 'Revenu du mois',
                     'value' => number_format($revenuMois, 0, ',', ' ') . ' FCFA',
-                    'monthly_progress' => null
+                    'monthly_progress' => [
+                        'evolution' => 0,
+                        'evolution_value' => 0
+                    ]
                 ],
                 [
                     'id' => '2',
                     'type' => 'commande',
                     'libelle' => 'Commandes du mois',
                     'value' => (string) $commandesMois,
-                    'monthly_progress' => null
+                    'monthly_progress' => [
+                        'evolution' => 0,
+                        'evolution_value' => 0
+                    ]
                 ],
                 [
                     'id' => '3',
                     'type' => 'client',
                     'libelle' => 'Clients actifs',
                     'value' => (string) $clientsMois,
-                    'monthly_progress' => null
+                    'monthly_progress' => [
+                        'evolution' => 0,
+                        'evolution_value' => 0
+                    ]
                 ],
                 [
                     'id' => '4',
                     'type' => 'recouvrement',
                     'libelle' => 'Taux de recouvrement',
                     'value' => $commandesMois > 0 ? '100%' : '0%',
-                    'monthly_progress' => null
+                    'monthly_progress' => [
+                        'evolution' => 0,
+                        'evolution_value' => 0
+                    ]
                 ]
             ];
 
             /* =============================
-            * STATISTIQUES PAR JOUR
+            * STATISTICS — 7 JOURS SEMAINE
             * ============================= */
-            $statistics_datas = DB::table('sous_commandes')
+            $startWeek = Carbon::now()->startOfWeek();
+            $endWeek   = Carbon::now()->endOfWeek();
+
+            $revenusParJour = DB::table('sous_commandes')
                 ->join('plats', 'plats.id', '=', 'sous_commandes.id_plat')
                 ->selectRaw('
                     DATE(sous_commandes.created_at) as day,
                     SUM(plats.prix_reduit * sous_commandes.quantite_plat) as revenu
                 ')
                 ->where('sous_commandes.id_marchand', $marchandId)
-                ->where('sous_commandes.statut', 'Livrée')
-                ->whereBetween('sous_commandes.created_at', [$startMonth, $endMonth])
+                ->where('sous_commandes.statut', 'complete')
+                ->whereBetween('sous_commandes.created_at', [$startWeek, $endWeek])
                 ->groupBy('day')
-                ->orderBy('day')
                 ->get()
-                ->map(function ($item, $index) {
-                    return [
-                        'id' => (string) ($index + 1),
-                        'day' => Carbon::parse($item->day)->translatedFormat('D'),
-                        'revenu' => (int) $item->revenu,
-                        'progression_percent' => 0
-                    ];
-                });
+                ->keyBy('day');
+
+            $statistics_datas = [];
+            $dayIndex = 1;
+
+            for ($date = $startWeek->copy(); $date <= $endWeek; $date->addDay()) {
+                $dayKey = $date->toDateString();
+
+                $statistics_datas[] = [
+                    'id' => (string) $dayIndex++,
+                    'day' => $date->translatedFormat('D'),
+                    'revenu' => isset($revenusParJour[$dayKey])
+                        ? (int) $revenusParJour[$dayKey]->revenu
+                        : 0,
+                    'progression_percent' => 0
+                ];
+            }
 
             /* =============================
-            * PLATS LES + VENDUS (PIE)
+            * PIE — PLATS LES + VENDUS
             * ============================= */
             $totalQuantite = DB::table('sous_commandes')
                 ->where('id_marchand', $marchandId)
+                ->where('statut', 'complete')
                 ->sum('quantite_plat');
 
-            $pie_datas = DB::table('sous_commandes')
-                ->join('plats', 'plats.id', '=', 'sous_commandes.id_plat')
-                ->select(
-                    'plats.nom_plat',
-                    DB::raw('SUM(sous_commandes.quantite_plat) as total')
-                )
-                ->where('sous_commandes.id_marchand', $marchandId)
-                ->groupBy('plats.nom_plat')
-                ->orderByDesc('total')
-                ->limit(5)
-                ->get()
-                ->map(function ($item, $index) use ($totalQuantite) {
-                    return [
-                        'id' => (string) ($index + 1),
-                        'nom_plat' => $item->nom_plat,
-                        'percent_value' => $totalQuantite > 0
-                            ? round(($item->total / $totalQuantite) * 100)
-                            : 0
-                    ];
-                });
+            if ($totalQuantite > 0) {
+                $pie_datas = DB::table('sous_commandes')
+                    ->join('plats', 'plats.id', '=', 'sous_commandes.id_plat')
+                    ->select(
+                        'plats.nom_plat',
+                        DB::raw('SUM(sous_commandes.quantite_plat) as total')
+                    )
+                    ->where('sous_commandes.id_marchand', $marchandId)
+                    ->where('sous_commandes.statut', 'complete')
+                    ->groupBy('plats.nom_plat')
+                    ->orderByDesc('total')
+                    ->limit(5)
+                    ->get()
+                    ->map(function ($item, $index) use ($totalQuantite) {
+                        return [
+                            'id' => (string) ($index + 1),
+                            'nom_plat' => $item->nom_plat,
+                            'percent_value' => round(($item->total / $totalQuantite) * 100)
+                        ];
+                    });
+            } else {
+                $pie_datas = null;
+            }
 
             /* =============================
             * MEILLEUR JOUR
@@ -151,7 +175,7 @@ class AnalytiqueController extends Controller
                     SUM(plats.prix_reduit * sous_commandes.quantite_plat) as revenu
                 ')
                 ->where('sous_commandes.id_marchand', $marchandId)
-                ->where('sous_commandes.statut', 'Livrée')
+                ->where('sous_commandes.statut', 'complete')
                 ->groupBy('day')
                 ->orderByDesc('revenu')
                 ->first();
