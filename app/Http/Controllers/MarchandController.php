@@ -164,5 +164,31 @@ class MarchandController extends Controller
     }
 
 
+    public function info_solde(Request $request){
+        try{
+            $user = $request->user();
+            $marchand = Marchand::find($user->id);
+             if(!$marchand || !$user){
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Marchand non trouvé'
+                ],404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $marchand->solde_marchand,
+                'message' => 'Solde du marchand affiché avec succès'
+            ],200);
+        }
+        catch(QueryException $e){
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l’affaichage du solde du marchand',
+                'erreur' => $e->getMessage()
+            ],500);
+        }
+    }
+
 
 }
