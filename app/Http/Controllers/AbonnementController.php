@@ -37,7 +37,7 @@ class AbonnementController extends Controller
 
             $abonnement->avantages()->attach($request->avantages);
 
-            $avantages = $abonnement->avantages()->select('avantages.id', 'avantages.nom_avantage')->get()->makeHidden('pivot');
+            $avantages = $abonnement->avantages()->select('avantages.id', 'avantages.nom_avantage', 'avantages.value')->get()->makeHidden('pivot');
 
 
             return response()->json([
@@ -65,27 +65,34 @@ class AbonnementController extends Controller
     }
 
     public function liste_abonnement(){
-        try{
-            $abonnement = Abonnement::select('id', 'type_abonnement', 'description', 'montant', 'duree')->with(['avantages:id,nom_avantage'])->get();
-            $abonnement->each(function ($a) {
-                $a->avantages->makeHidden('pivot');
-            });
-            
-            return response()->json([
-                'success' => true,
-                'data' => $abonnement,
-                'message' => 'Liste des abonnements affichés avec succès.'
-            ],200);
+        try {
+            $abonnements = Abonnement::select('id', 'type_abonnement', 'description', 'montant', 'duree')
+                ->with(['avantages:id,nom_avantage,value'])
+                ->get();
 
-        }
-        catch(QueryException $e){
+            $abonnements->each(function ($abonnement) {
+                $abonnement->avantages->each(function ($avantage) {
+                    $avantage->nom_avantage = trim($avantage->value . ' ' . $avantage->nom_avantage);
+                    unset($avantage->value);
+                    unset($avantage->pivot);
+                });
+            });
+
             return response()->json([
                 'success' => true,
+                'data' => $abonnements,
+                'message' => 'Liste des abonnements affichés avec succès.'
+            ], 200);
+
+        } catch (QueryException $e) {
+            return response()->json([
+                'success' => false,
                 'message' => 'Echec lors de l’affichage de la liste des abonnements',
                 'erreur' => $e->getMessage()
-            ],500);
+            ], 500);
         }
     }
+
 
     public function update_abonnement(Request $request, $id){
         $validator = Validator::make($request->all(),[
@@ -120,7 +127,7 @@ class AbonnementController extends Controller
 
             $abonnement->avantages()->sync($request->avantages);
 
-            $avantages = $abonnement->avantages()->select('avantages.id', 'avantages.nom_avantage')->get()->makeHidden('pivot');
+            $avantages = $abonnement->avantages()->select('avantages.id', 'avantages.nom_avantage', 'avantages.value')->get()->makeHidden('pivot');
             
 
             return response()->json([

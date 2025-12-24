@@ -38,7 +38,7 @@ class DatabaseSeeder extends Seeder
         $abonnement->type_abonnement = 'debutant';
         $abonnement->description = 'La description de l’abonnement';
         $abonnement->montant = 0;
-        $abonnement->duree = 'illimité';
+        $abonnement->duree = null;
         $abonnement->save();
 
         $this->command->info("     - Abonnement par defaut créé");

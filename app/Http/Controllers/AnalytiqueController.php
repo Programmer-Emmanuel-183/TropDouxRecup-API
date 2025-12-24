@@ -48,31 +48,35 @@ class AnalytiqueController extends Controller
 
             $commandesMois = DB::table('sous_commandes')
                 ->where('id_marchand', $marchandId)
+                ->where('statut', 'complete')
                 ->whereBetween('created_at', [$startMonth, $endMonth])
                 ->count();
 
             $commandesMoisPrecedent = DB::table('sous_commandes')
                 ->where('id_marchand', $marchandId)
+                ->where('statut', 'complete')
                 ->whereBetween('created_at', [$startPrevMonth, $endPrevMonth])
                 ->count();
 
             $clientsMois = DB::table('sous_commandes')
                 ->where('id_marchand', $marchandId)
+                ->where('statut', 'complete')
                 ->whereBetween('created_at', [$startMonth, $endMonth])
                 ->distinct('id_client')
                 ->count('id_client');
 
-                $economiesClientsMois = DB::table('sous_commandes')
-                    ->join('plats', 'plats.id', '=', 'sous_commandes.id_plat')
-                    ->where('sous_commandes.id_marchand', $marchandId)
-                    ->where('sous_commandes.statut', 'complete')
-                    ->whereBetween('sous_commandes.created_at', [$startMonth, $endMonth])
-                    ->sum(DB::raw('
-                        (plats.prix_origine - plats.prix_reduit) * sous_commandes.quantite_plat
-                    '));
+            $economiesClientsMois = DB::table('sous_commandes')
+                ->join('plats', 'plats.id', '=', 'sous_commandes.id_plat')
+                ->where('sous_commandes.id_marchand', $marchandId)
+                ->where('sous_commandes.statut', 'complete')
+                ->whereBetween('sous_commandes.created_at', [$startMonth, $endMonth])
+                ->sum(DB::raw('
+                    (plats.prix_origine - plats.prix_reduit) * sous_commandes.quantite_plat
+                '));
 
             $clientsMoisPrecedent = DB::table('sous_commandes')
                 ->where('id_marchand', $marchandId)
+                ->where('statut', 'complete')
                 ->whereBetween('created_at', [$startPrevMonth, $endPrevMonth])
                 ->distinct('id_client')
                 ->count('id_client');
@@ -126,21 +130,21 @@ class AnalytiqueController extends Controller
             $weekRevenus = DB::table('sous_commandes')
                 ->join('plats', 'plats.id', '=', 'sous_commandes.id_plat')
                 ->selectRaw("
-                    EXTRACT(DOW FROM sous_commandes.created_at) as dow,
+                    DAYOFWEEK(sous_commandes.created_at) as dow,
                     SUM(plats.prix_reduit * sous_commandes.quantite_plat) as revenu
                 ")
                 ->where('sous_commandes.id_marchand', $marchandId)
                 ->where('sous_commandes.statut', 'complete')
                 ->whereBetween('sous_commandes.created_at', [$startWeek, $endWeek])
-                ->groupBy('dow')
+                ->groupBy(DB::raw('DAYOFWEEK(sous_commandes.created_at)'))
                 ->get();
 
-            $jours = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
+            $jours = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'];
 
             $maxRevenu = $weekRevenus->max('revenu') ?: 1;
 
             $statistics_datas = collect($jours)->map(function ($jour, $index) use ($weekRevenus, $maxRevenu) {
-                $dow = $index === 6 ? 0 : $index + 1;
+                $dow = $index + 1;
                 $revenu = (int) ($weekRevenus->firstWhere('dow', $dow)->revenu ?? 0);
 
                 return [
@@ -153,13 +157,15 @@ class AnalytiqueController extends Controller
 
             $totalQuantite = DB::table('sous_commandes')
                 ->where('id_marchand', $marchandId)
+                ->where('statut', 'complete')
                 ->sum('quantite_plat');
 
             $pie_datas = DB::table('sous_commandes')
                 ->join('plats', 'plats.id', '=', 'sous_commandes.id_plat')
                 ->select('plats.nom_plat', DB::raw('SUM(sous_commandes.quantite_plat) as total'))
                 ->where('sous_commandes.id_marchand', $marchandId)
-                ->groupBy('plats.nom_plat')
+                ->where('sous_commandes.statut', 'complete')
+                ->groupBy('plats.id', 'plats.nom_plat')
                 ->orderByDesc('total')
                 ->limit(5)
                 ->get()
@@ -193,7 +199,7 @@ class AnalytiqueController extends Controller
                     'dashboard_datas' => $dashboard_datas,
                     'statistics_datas' => $statistics_datas->values(),
                     'pie_datas' => $pie_datas,
-                    'economies_clients_mois' => $economiesClientsMois,
+                    'economies_clients_mois' => (int) $economiesClientsMois,
                     'best_day' => $bestDay ? [
                         'day' => Carbon::parse($bestDay->day)->translatedFormat('l'),
                         'revenu' => (int) $bestDay->revenu,
