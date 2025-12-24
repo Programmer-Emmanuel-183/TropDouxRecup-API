@@ -736,6 +736,8 @@ class AuthController extends Controller
                     'telephone' => $admin->tel_admin,
                     'image_profil' => $admin->image_admin,
                     'role' => $admin->role, 
+                    'created_at' => $admin->created_at,
+                    'updated_at' => $admin->updated_at,
                 ];
             });
 
@@ -781,6 +783,8 @@ class AuthController extends Controller
                     'telephone' => $admin->tel_admin,
                     'image_profil' => $admin->image_admin,
                     'role' => $admin->role,
+                    'created_at' => $admin->created_at,
+                    'updated_at' => $admin->updated_at,
                 ],
                 'message' => 'Sous administrateur affiché avec succès'
             ],200);

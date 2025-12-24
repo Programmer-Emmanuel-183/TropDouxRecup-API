@@ -26,7 +26,9 @@ class GestionClientMarchandController extends Controller
                     'nom' => $client->nom_client,
                     'email' => $client->email_client,
                     'telephone' => $client->tel_client,
-                    'image' => $client->image_client
+                    'image' => $client->image_client,
+                    'created_at' => $client->created_at,
+                    'updated_at' => $client->updated_at,
                 ];
             });
 
@@ -63,7 +65,9 @@ class GestionClientMarchandController extends Controller
                     'nom' => $client->nom_client,
                     'email' => $client->email_client,
                     'telephone' => $client->tel_client,
-                    'image' => $client->image_client
+                    'image' => $client->image_client,
+                    'created_at' => $client->created_at,
+                    'updated_at' => $client->updated_at,
                 ],
                 'message' => 'Client affiché avec succès'
             ],200);
