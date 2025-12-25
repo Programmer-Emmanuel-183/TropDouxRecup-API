@@ -190,5 +190,36 @@ class MarchandController extends Controller
         }
     }
 
+    public function forfait_actif(Request $request){
+        try{
+            $user = $request->user();
+            $marchand = Marchand::find($user->id);
+            if(!$user || !$marchand){
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Marchand introuvable'
+                ],404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'nom_abonnement' => $marchand->abonnement->type_abonnement,
+                    'icon_url' => $marchand->abonnement->icon_url,
+                    'icon_bg_color' => $marchand->abonnement->icon_bg_color,
+                    'date_abonnement' => $marchand->date_abonnement == null ? $marchand->created_at : $marchand->date_abonnement
+                ],
+                'message' => 'Forfait actif affiché avec succès'
+            ],200);
+        }
+        catch(QueryException $e){
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l’affichage du forfait actif',
+                'erreur' => $e->getMessage()
+            ],500);
+        }
+    }
+
 
 }

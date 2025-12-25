@@ -24,6 +24,7 @@ class Marchand extends Authenticatable
         'is_verify',
         'image_marchand',
         'id_abonnement',
+        'date_abonnement',
         'id_commune'
     ];
 

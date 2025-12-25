@@ -168,5 +168,7 @@ Route::middleware('auth:admin')->group(function(){
 //Affichage de toutes les commandes
 Route::get('/commandes', [CommandeController::class, 'liste_commandes'])->middleware('auth:admin');
 
-
+//Info du solde du marchand
 Route::get('/info/solde/marchand', [MarchandController::class, 'info_solde'])->middleware('auth:marchand');
+
+Route::get('/forfait/actif/marchand', [MarchandController::class, 'forfait_actif'])->middleware('auth:marchand');
