@@ -315,7 +315,7 @@ class CommandeController extends Controller
 
     public function marquer_comme_recupere(Request $request){
         $validator = Validator::make($request->all(), [
-            'id_commande' => 'required|exists:commandes,id',
+            'code_commande' => 'required|exists:sous_commandes,code_commande',
         ]);
 
         if ($validator->fails()) {
@@ -329,9 +329,9 @@ class CommandeController extends Controller
             $marchand = $request->user();
             $dateNow = now();
 
-            // Récupérer les sous-commandes du marchand pour cette commande
+            // 🔹 Récupérer les sous-commandes du marchand via le code_commande
             $sousCommandes = SousCommande::with(['plat', 'client'])
-                ->where('id_commande', $request->id_commande)
+                ->where('code_commande', $request->code_commande)
                 ->where('id_marchand', $marchand->id)
                 ->get();
 
@@ -342,16 +342,19 @@ class CommandeController extends Controller
                 ], 404);
             }
 
-            // Marquer chaque sous-commande comme récupérée
+            // 🔹 Marquer les sous-commandes comme récupérées
             foreach ($sousCommandes as $s) {
                 $s->statut = 'completed';
                 $s->date_de_recuperation = $dateNow;
                 $s->save();
             }
 
-            // Mettre à jour la commande principale si toutes les sous-commandes sont récupérées
-            $commande = Commande::find($request->id_commande);
-            $allRecovered = SousCommande::where('id_commande', $commande->id)
+            // 🔹 Récupérer la commande principale
+            $commandeId = $sousCommandes->first()->id_commande;
+            $commande = Commande::find($commandeId);
+
+            // 🔹 Vérifier si toutes les sous-commandes sont récupérées
+            $allRecovered = SousCommande::where('id_commande', $commandeId)
                 ->whereNull('date_de_recuperation')
                 ->doesntExist();
 
@@ -360,54 +363,41 @@ class CommandeController extends Controller
                 $commande->save();
             }
 
-            // Construction de la réponse
-            $result = [];
+            // 🔹 Construction de la réponse
+            $dishes = [];
+            $totalPrice = 0;
+            $totalQuantity = 0;
 
-            $grouped = $sousCommandes->groupBy('id_commande');
+            foreach ($sousCommandes as $s) {
+                $dishes[] = [
+                    'id' => $s->id_plat,
+                    'name' => $s->plat->nom_plat,
+                    'quantity' => $s->quantite_plat,
+                    'unit_price' => $s->plat->prix_reduit,
+                    'code_qr' => $s->code_qr,
+                ];
 
-            foreach ($grouped as $commandeId => $items) {
+                $totalPrice += $s->plat->prix_reduit * $s->quantite_plat;
+                $totalQuantity += $s->quantite_plat;
+            }
 
-                $orderId = $items->first()->code_commande;
-                $commission = $items->first()->commission ?? 0;
-                $clientName = $items->first()->client->nom_client ?? "Client";
+            $completedAt = $sousCommandes->max('date_de_recuperation');
 
-                $dishes = [];
-                $totalPrice = 0;
-                $totalQuantity = 0;
-
-                foreach ($items as $s) {
-                    $dishes[] = [
-                        'id' => $s->id_plat,
-                        'name' => $s->plat->nom_plat,
-                        'quantity' => $s->quantite_plat,
-                        'unit_price' => $s->plat->prix_reduit,
-                        'code_qr' => $s->code_qr
-                    ];
-
-                    $totalPrice += $s->plat->prix_reduit * $s->quantite_plat;
-                    $totalQuantity += $s->quantite_plat;
-                }
-
-                $completedAt = $items->max('date_de_recuperation')->toISOString();
-
-                $result[] = [
+            return response()->json([
+                'success' => true,
+                'message' => 'Sous-commandes récupérées avec succès',
+                'data' => [
                     'id' => $commande->id,
-                    'orderId' => $orderId,
-                    'customerName' => $clientName,
-                    'status' => $commande->statut, // maintenant correct !
+                    'orderId' => $request->code_commande,
+                    'customerName' => $sousCommandes->first()->client->nom_client ?? 'Client',
+                    'status' => $commande->statut,
                     'createdAt' => $commande->created_at,
-                    'commission' => $commission,
+                    'commission' => $sousCommandes->first()->commission ?? 0,
                     'totalPriceOrder' => $totalPrice,
                     'orderLength' => $totalQuantity,
                     'completedAt' => $completedAt,
                     'dishes' => $dishes
-                ];
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => "Commande marquée comme récupérée.",
-                'data' => $result
+                ]
             ], 200);
 
         } catch (\Exception $e) {
@@ -417,6 +407,7 @@ class CommandeController extends Controller
             ], 500);
         }
     }
+
 
 
     public function sous_commandes_par_code(Request $request, $code_commande){
