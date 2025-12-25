@@ -227,16 +227,18 @@ class CommandeController extends Controller
     public function commandes_marchand(Request $request){
         try {
             $marchand = $request->user();
-
             $limit = $request->limit;
+            $statut = $request->query('statut'); // completed | pending
 
-            $query = SousCommande::with(['plat'])
+            $query = SousCommande::with(['plat', 'client'])
                 ->where('id_marchand', $marchand->id)
                 ->orderBy('created_at', 'desc');
 
-            if($limit){
+            // 🔹 Limite
+            if ($limit) {
                 $query->limit($limit);
             }
+
             $sousCommandes = $query->get();
 
             if ($sousCommandes->isEmpty()) {
@@ -247,12 +249,26 @@ class CommandeController extends Controller
                 ], 200);
             }
 
+            // 🔹 Grouper par commande
             $grouped = $sousCommandes->groupBy('id_commande');
             $result = [];
 
             foreach ($grouped as $commandeId => $items) {
 
+                // 🔹 Statut calculé
+                $allRecovered = $items->every(fn ($i) => $i->date_de_recuperation !== null);
+
+                // 🔹 Filtrage par statut (SANS changer la réponse)
+                if ($statut === 'completed' && !$allRecovered) {
+                    continue;
+                }
+
+                if ($statut === 'pending' && $allRecovered) {
+                    continue;
+                }
+
                 $commande = Commande::find($commandeId);
+
                 $orderId = $items->first()->code_commande;
                 $commission = $items->first()->commission ?? 0;
                 $clientName = $items->first()->client->nom_client ?? '';
@@ -267,14 +283,11 @@ class CommandeController extends Controller
                         'name' => $s->plat->nom_plat,
                         'quantity' => $s->quantite_plat,
                         'unit_price' => $s->plat->prix_reduit,
-                        // 'code_qr' => $s->code_qr
                     ];
 
                     $totalPrice += $s->plat->prix_reduit * $s->quantite_plat;
                     $totalQuantity += $s->quantite_plat;
                 }
-
-                $allRecovered = $items->every(fn($i) => $i->date_de_recuperation !== null);
 
                 $completedAt = $allRecovered
                     ? $items->max('date_de_recuperation')->toISOString()
@@ -296,14 +309,18 @@ class CommandeController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $result,
+                'data' => array_values($result), // reindex propre
                 'external_data' => [
                     'total_commandes' => count($result),
-                    'total_recuperees' => collect($sousCommandes)->filter(fn($c) => $c['date_de_recuperation'] !== null)->count(),
-                    'total_en_attente' => collect($sousCommandes)->filter(fn($c) => $c['date_de_recuperation'] === null)->count(),
+                    'total_recuperees' => collect($sousCommandes)
+                        ->filter(fn ($c) => $c->date_de_recuperation !== null)
+                        ->count(),
+                    'total_en_attente' => collect($sousCommandes)
+                        ->filter(fn ($c) => $c->date_de_recuperation === null)
+                        ->count(),
                 ],
                 'message' => 'Commandes du marchand affiché avec succès'
-            ],200);
+            ], 200);
 
         } catch (\Exception $e) {
             return response()->json([
@@ -312,6 +329,7 @@ class CommandeController extends Controller
             ], 500);
         }
     }
+
 
     public function marquer_comme_recupere(Request $request){
         $validator = Validator::make($request->all(), [
