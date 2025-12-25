@@ -25,8 +25,11 @@ class Abonnement extends Model
         'type_abonnement',
         'description',
         'montant',
-        'duree'
+        'duree',
+        'icon_url',
+        'icon_bg_color',
     ];
+
     
 
     public function avantages(){
@@ -37,6 +40,11 @@ class Abonnement extends Model
             'id_avantage'             // clé étrangère vers avantage
         );
     }
+
+    public function marchands(){
+        return $this->hasMany(Marchand::class, 'id_abonnement');
+    }
+
 
 
 }

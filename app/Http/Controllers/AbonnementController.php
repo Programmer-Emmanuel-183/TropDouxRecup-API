@@ -6,6 +6,7 @@ use App\Models\Abonnement;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
 
 class AbonnementController extends Controller
@@ -16,6 +17,8 @@ class AbonnementController extends Controller
             'description' => 'required',
             'montant' => 'required',
             'duree' => 'required|in:mois,illimite,trimestre,semestre,annee',
+            'icon_url' => 'required|image|mimes:jpeg,png,jpg|max:2048',
+            'icon_bg_color' => 'required',
             'avantages' => 'required|array',
             'avantages.*' => 'uuid|exists:avantages,id'
         ]);
@@ -28,11 +31,15 @@ class AbonnementController extends Controller
         }
 
         try{
+            $image = $this->uploadImageToHosting($request->file('icon_url'));
+
             $abonnement = new Abonnement();
             $abonnement->type_abonnement = $request->type_abonnement;
             $abonnement->description = $request->description;
             $abonnement->montant = $request->montant;
             $abonnement->duree = $request->duree;
+            $abonnement->icon_url = $image;
+            $abonnement->icon_bg_color = $request->icon_bg_color;
             $abonnement->save();
 
             $abonnement->avantages()->attach($request->avantages);
@@ -48,7 +55,9 @@ class AbonnementController extends Controller
                         'type_abonnement' => $abonnement->type_abonnement,
                         'description' => $abonnement->description,
                         'montant' => $abonnement->montant,
-                        'duree' => $abonnement->duree
+                        'duree' => $abonnement->duree === 'illimite' ? null : $abonnement->duree,
+                        'icon_url' => $abonnement->icon_url,
+                        'icon_bg_color' => $abonnement->icon_bg_color
                     ],
                     'avantages' => $avantages
                     ],
@@ -66,16 +75,39 @@ class AbonnementController extends Controller
 
     public function liste_abonnement(){
         try {
-            $abonnements = Abonnement::select('id', 'type_abonnement', 'description', 'montant', 'duree')
+            // 🔹 Récupérer les abonnements avec le nombre d'utilisations
+            $abonnements = Abonnement::select(
+                    'abonnements.id',
+                    'type_abonnement',
+                    'description',
+                    'montant',
+                    'duree',
+                    'icon_url',
+                    'icon_bg_color'
+                )
+                ->withCount('marchands') // relation obligatoire
                 ->with(['avantages:id,nom_avantage,value'])
                 ->get();
 
-            $abonnements->each(function ($abonnement) {
+            // 🔹 Trouver le max d'utilisation
+            $maxUsage = $abonnements->max('marchands_count');
+
+            $abonnements->each(function ($abonnement) use ($maxUsage) {
+
+                // 🔥 is_popular dynamique
+                $abonnement->is_popular = $abonnement->marchands_count === $maxUsage && $maxUsage > 0;
+
+                // 🔹 Durée illimitée
+                $abonnement->duree = $abonnement->duree === 'illimite' ? null : $abonnement->duree;
+
+                // 🔹 Formatage avantages
                 $abonnement->avantages->each(function ($avantage) {
                     $avantage->nom_avantage = trim($avantage->value . ' ' . $avantage->nom_avantage);
-                    unset($avantage->value);
-                    unset($avantage->pivot);
+                    unset($avantage->value, $avantage->pivot);
                 });
+
+                // Optionnel : ne pas exposer le count
+                unset($abonnement->marchands_count);
             });
 
             return response()->json([
@@ -94,12 +126,15 @@ class AbonnementController extends Controller
     }
 
 
+
     public function update_abonnement(Request $request, $id){
         $validator = Validator::make($request->all(),[
             'type_abonnement' => 'required',
             'description' => 'required',
             'montant' => 'required',
             'duree' => 'required|in:mois,illimite,trimestre,semestre,annee',
+            'icon_url' => 'required|image|mimes:jpeg,png,jpg|max:2048',
+            'icon_bg_color' => 'required',
             'avantages' => 'required|array',
             'avantages.*' => 'uuid|exists:avantages,id'
         ]);
@@ -119,10 +154,14 @@ class AbonnementController extends Controller
                     'message' => 'Abonnement non trouvé'
                 ],404);
             }
+            $image = $this->uploadImageToHosting($request->file('icon_url'));
+
             $abonnement->type_abonnement = $request->type_abonnement;
             $abonnement->description = $request->description;
             $abonnement->montant = $request->montant;
             $abonnement->duree = $request->duree;
+            $abonnement->icon_url = $image;
+            $abonnement->icon_bg_color = $request->icon_bg_color;
             $abonnement->save();
 
             $abonnement->avantages()->sync($request->avantages);
@@ -138,7 +177,9 @@ class AbonnementController extends Controller
                         'type_abonnement' => $abonnement->type_abonnement,
                         'description' => $abonnement->description,
                         'montant' => $abonnement->montant,
-                        'duree' => $abonnement->duree
+                        'duree' => $abonnement->duree,
+                        'icon_url' => $abonnement->icon_url,
+                        'icon_bg_color' => $abonnement->icon_bg_color
                     ],
                     'avantages' => $avantages
                     ],
@@ -178,5 +219,29 @@ class AbonnementController extends Controller
                 'erreur' => $e->getMessage()
             ],500);
         }
+    }
+
+
+    private function uploadImageToHosting($image){
+        $apiKey = '9b1ab6564d99aab6418ad53d3451850b';
+
+        // Vérifie que le fichier est une instance valide
+        if (!$image->isValid()) {
+            throw new \Exception("Fichier image non valide.");
+        }
+
+        // Lecture et encodage en base64
+        $imageContent = base64_encode(file_get_contents($image->getRealPath()));
+
+        $response = Http::asForm()->post('https://api.imgbb.com/1/upload', [
+            'key' => $apiKey,
+            'image' => $imageContent,
+        ]);
+
+        if ($response->successful()) {
+            return $response->json()['data']['url'];
+        }
+
+        throw new \Exception("Erreur lors de l'envoi de l'image : " . $response->body());
     }
 }
