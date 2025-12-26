@@ -23,7 +23,8 @@ class LocaliteController extends Controller
             $data = $localites->map(function($localite){
                 return [
                     'id' => $localite->id,
-                    'libelle' => $localite->localite
+                    'libelle' => $localite->localite,
+                    'created_at' => $localite->created_at
                 ];
             });
 
@@ -57,6 +58,7 @@ class LocaliteController extends Controller
                 'data' => [
                     'id' => $localite->id,
                     'libelle' => $localite->localite,
+                    'created_at' => $localite->created_at
                 ],
                 'message' => 'Localite affichée avec succès'
             ],200);

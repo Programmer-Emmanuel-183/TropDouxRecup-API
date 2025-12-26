@@ -83,7 +83,8 @@ class AbonnementController extends Controller
                     'montant',
                     'duree',
                     'icon_url',
-                    'icon_bg_color'
+                    'icon_bg_color',
+                    'created_at'
                 )
                 ->withCount('marchands') // relation obligatoire
                 ->with(['avantages:id,nom_avantage,value'])

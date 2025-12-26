@@ -11,7 +11,7 @@ class AvantageController extends Controller
 {
     public function liste_avantage(Request $request){
         try{
-            $avantage = Avantage::select('id', 'nom_avantage', 'value')->get();
+            $avantage = Avantage::select('id', 'nom_avantage', 'value', 'created_at')->get();
             return response()->json([
                 'success' => true,
                 'data' => $avantage,
