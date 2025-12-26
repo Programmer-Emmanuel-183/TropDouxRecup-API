@@ -6,6 +6,7 @@ use App\Models\Admin;
 use App\Models\Commande;
 use App\Models\Commission;
 use App\Models\Panier;
+use App\Models\Plat;
 use App\Models\SousCommande;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -41,6 +42,20 @@ class CommandeController extends Controller
                     'message' => 'Aucun panier trouvé pour ce client.'
                 ], 404);
             }
+
+            foreach ($paniers as $panier) {
+                $plat = Plat::whereNull('deleted_at')
+                    ->where('id', $panier->id_plat)
+                    ->first();
+
+                if (!$plat) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Un ou plusieurs plats ne sont plus disponibles'
+                    ], 400);
+                }
+            }
+
 
             foreach ($paniers as $panier) {
                 if ($panier->plat->quantite_disponible < $panier->quantite) {

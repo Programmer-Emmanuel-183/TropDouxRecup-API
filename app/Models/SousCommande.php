@@ -39,7 +39,7 @@ class SousCommande extends Model
 
 
     public function plat(){
-        return $this->belongsTo(Plat::class, 'id_plat');
+        return $this->belongsTo(Plat::class, 'id_plat')->withTrashed();
     }
 
     public function marchand(){

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
+use SoftDeletes;
 
 class Plat extends Model
 {
@@ -38,6 +39,8 @@ class Plat extends Model
     protected $casts = [
         'autre_image' => 'array',
     ];
+
+    protected $dates = ['deleted_at'];
 
     public function marchand(){
         return $this->belongsTo(Marchand::class, 'id_marchand');
