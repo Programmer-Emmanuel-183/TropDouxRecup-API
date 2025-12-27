@@ -9,10 +9,18 @@ class AdminController extends Controller
 {
     public function afficher_solde(Request $request){
         $user = $request->user();
-        if(!$user || $user->role != 2){
+        if(!$user){
             return response()->json([
                 'success' => false,
-                'message' => 'Admin non trouvé ou accès non permis'
+                'message' => 'Admin non trouvé'
+            ],404);
+        }
+
+        if($user->role != 2){
+            return response()->json([
+                'success' => true,
+                'data' => 0,
+                'message' => 'Accès non permis'
             ],403);
         }
 

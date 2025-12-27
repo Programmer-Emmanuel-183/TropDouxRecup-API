@@ -380,136 +380,156 @@ class PlatController extends Controller
         }
     }
 
-    public function update_plat(Request $request, $id)
-{
-    /**
-     * 🔥 NETTOYAGE autre_image AVANT VALIDATION
-     * - "null" (string) → null réel
-     */
-    if ($request->has('autre_image')) {
-        $cleanImages = collect((array) $request->autre_image)
-            ->map(fn ($item) => $item === 'null' ? null : $item)
-            ->toArray();
-
-        $request->merge([
-            'autre_image' => $cleanImages
-        ]);
-    }
-
-    // ✅ VALIDATION
-    $validator = Validator::make($request->all(), [
-        'nom_plat' => 'required',
-        'description_plat' => 'required',
-        'image_couverture' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
-        'autre_image' => 'sometimes|array',
-        'autre_image.*' => 'nullable',
-        'prix_origine' => 'required|numeric|min:1',
-        'prix_reduit' => 'required|numeric|lt:prix_origine|min:0',
-        'quantite_plat' => 'required|integer|min:1',
-        'quantite_disponible' => 'required|integer|min:1',
-        'is_active' => 'nullable|boolean',
-        'id_categorie' => 'required',
-    ]);
-
-    if ($validator->fails()) {
-        return response()->json([
-            'success' => false,
-            'message' => $validator->errors()->first()
-        ], 422);
-    }
-
-    if ($request->quantite_disponible > $request->quantite_plat) {
-        return response()->json([
-            'success' => false,
-            'message' => 'La quantité disponible doit être inférieure ou égale à la quantité totale.'
-        ], 400);
-    }
-
-    try {
-        $categorie = Categorie::find($request->id_categorie);
-        if (!$categorie) {
-            return response()->json(['success' => false, 'message' => 'Categorie non trouvée'], 404);
-        }
-
-        $user = $request->user();
-        if (!$user) {
-            return response()->json(['success' => false, 'message' => 'Marchand non trouvé'], 404);
-        }
-
-        $plat = Plat::find($id);
-        if (!$plat) {
-            return response()->json(['success' => false, 'message' => 'Plat non trouvé'], 404);
-        }
-
-        // 🖼 Image couverture
-        $imageCouverture = $request->hasFile('image_couverture')
-            ? $this->uploadImageToHosting($request->file('image_couverture'))
-            : $plat->image_couverture;
-
-        $data = [
-            'nom_plat' => $request->nom_plat,
-            'description_plat' => $request->description_plat,
-            'image_couverture' => $imageCouverture,
-            'prix_origine' => $request->prix_origine,
-            'prix_reduit' => $request->prix_reduit,
-            'quantite_plat' => $request->quantite_plat,
-            'quantite_disponible' => $request->quantite_disponible,
-            'is_active' => $request->is_active ?? $plat->is_active,
-            'id_categorie' => $categorie->id,
-        ];
-
+    public function update_plat(Request $request, $id){
         /**
-         * 🔥 LOGIQUE INDEX + same + null
+         * 🔥 NETTOYAGE autre_image AVANT VALIDATION
+         * - "null" (string) → null réel
          */
         if ($request->has('autre_image')) {
+            $cleanImages = collect((array) $request->autre_image)
+                ->map(fn ($item) => $item === 'null' ? null : $item)
+                ->toArray();
 
-            $existingImages = $plat->autre_image ?? [];
-            $resultImages   = [];
-
-            foreach ((array) $request->autre_image as $index => $value) {
-
-                // ❌ null → supprimer
-                if ($value === null) {
-                    continue;
-                }
-
-                // 🔁 same → garder l'existante
-                if ($value === 'same' && isset($existingImages[$index])) {
-                    $resultImages[] = $existingImages[$index];
-                    continue;
-                }
-
-                // 🖼 Nouveau fichier → remplacer
-                if ($request->hasFile("autre_image.$index")) {
-                    $file = $request->file("autre_image.$index");
-                    if ($file && $file->isValid()) {
-                        $resultImages[] = $this->uploadImageToHosting($file);
-                    }
-                }
-            }
-
-            $data['autre_image'] = !empty($resultImages) ? array_values($resultImages) : null;
+            $request->merge([
+                'autre_image' => $cleanImages
+            ]);
         }
 
-        $plat->update($data);
-
-        return response()->json([
-            'success' => true,
-            'data' => $plat->fresh(),
-            'message' => 'Plat modifié avec succès.'
+        // ✅ VALIDATION
+        $validator = Validator::make($request->all(), [
+            'nom_plat' => 'required',
+            'description_plat' => 'required',
+            'image_couverture' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'autre_image' => 'sometimes|array',
+            'autre_image.*' => 'nullable',
+            'prix_origine' => 'required|numeric|min:1',
+            'prix_reduit' => 'required|numeric|lt:prix_origine|min:0',
+            'quantite_plat' => 'required|integer|min:1',
+            'quantite_disponible' => 'required|integer|min:1',
+            'is_active' => 'nullable|boolean',
+            'id_categorie' => 'required',
         ]);
 
-    } catch (\Throwable $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Erreur lors de la modification du plat',
-            'erreur' => $e->getMessage()
-        ], 500);
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first()
+            ], 422);
+        }
+
+        if ($request->quantite_disponible > $request->quantite_plat) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La quantité disponible doit être inférieure ou égale à la quantité totale.'
+            ], 400);
+        }
+
+        try {
+            // 🔎 Catégorie
+            $categorie = Categorie::find($request->id_categorie);
+            if (!$categorie) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Categorie non trouvée'
+                ], 404);
+            }
+
+            // 🔎 Marchand
+            $user = $request->user();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Marchand non trouvé'
+                ], 404);
+            }
+
+            // 🔎 Plat
+            $plat = Plat::find($id);
+            if (!$plat) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Plat non trouvé'
+                ], 404);
+            }
+
+            /**
+             * 🖼 Image de couverture
+             */
+            $imageCouverture = $request->hasFile('image_couverture')
+                ? $this->uploadImageToHosting($request->file('image_couverture'))
+                : $plat->image_couverture;
+
+            /**
+             * 📦 DATA PRINCIPALE
+             */
+            $data = [
+                'nom_plat' => $request->nom_plat,
+                'description_plat' => $request->description_plat,
+                'image_couverture' => $imageCouverture,
+                'prix_origine' => $request->prix_origine,
+                'prix_reduit' => $request->prix_reduit,
+                'quantite_plat' => $request->quantite_plat,
+                'quantite_disponible' => $request->quantite_disponible,
+                'is_active' => $request->is_active ?? $plat->is_active,
+                'id_categorie' => $categorie->id,
+            ];
+
+            /**
+             * 🔥 GESTION autre_image — LOGIQUE PAR INDEX EXACT
+             */
+            if ($request->has('autre_image')) {
+
+                // Images existantes (index conservés)
+                $existingImages = $plat->autre_image ?? [];
+                $resultImages   = $existingImages;
+
+                foreach ($request->autre_image as $index => $value) {
+
+                    // ❌ null → supprimer l’image à CET index
+                    if ($value === null) {
+                        unset($resultImages[$index]);
+                        continue;
+                    }
+
+                    // 🔁 same → garder l’image à CET index (rien à faire)
+                    if ($value === 'same') {
+                        continue;
+                    }
+
+                    // 🖼 nouvelle image → remplacer / ajouter à CET index
+                    if ($request->hasFile("autre_image.$index")) {
+                        $file = $request->file("autre_image.$index");
+                        if ($file && $file->isValid()) {
+                            $resultImages[$index] = $this->uploadImageToHosting($file);
+                        }
+                    }
+                }
+
+                // Nettoyage final (réindexation propre)
+                $data['autre_image'] = !empty($resultImages)
+                    ? array_values($resultImages)
+                    : null;
+            }
+
+            /**
+             * 💾 UPDATE
+             */
+            $plat->update($data);
+
+            return response()->json([
+                'success' => true,
+                'data' => $plat->fresh(),
+                'message' => 'Plat modifié avec succès.'
+            ]);
+
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la modification du plat',
+                'erreur' => $e->getMessage()
+            ], 500);
+        }
     }
-}
-
-
-
 
 
 

@@ -626,20 +626,45 @@ class AuthController extends Controller
 
     //Connexion administrateur
     public function login_admin(Request $request){
-        $validator = Validator::make($request->all(),[
-            'email' => 'email|required',
-            'password' => 'string|required|min:4'
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email',
+            'password' => 'required|string|min:4'
         ]);
-        if($validator->fails()){
+
+        if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => $validator->errors()->first()
-            ],422);
+            ], 422);
         }
 
-        $admin = Admin::where('email_admin', $request->email)->first();
-        if($admin && Hash::check($request->password, $admin->password_admin)){
+        try {
+            $admin = Admin::where('email_admin', $request->email)->first();
+
+            if (!$admin) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Admin introuvable'
+                ], 404);
+            }
+
+            if (!Hash::check($request->password, $admin->password_admin)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Mot de passe incorrect'
+                ], 401);
+            }
+
+            // Sécurité rôle
+            if (!in_array($admin->role, [1, 2])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Rôle non autorisé'
+                ], 403);
+            }
+
             $token = $admin->createToken('AdminToken')->plainTextToken;
+
             return response()->json([
                 'success' => true,
                 'data' => [
@@ -648,12 +673,20 @@ class AuthController extends Controller
                     'telephone' => $admin->tel_admin,
                     'image_profil' => $admin->image_admin,
                     'role' => $admin->role,
+                    'role_label' => $admin->role == 1 ? 'admin' : 'sous-admin',
                     'token' => $token
                 ],
-                'message' => 'Connexion de l’admin réussie'
-            ],200);
+                'message' => 'Connexion réussie'
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Connexion admin échouée'
+            ], 500);
         }
     }
+
 
     public function ajout_sub_admin(Request $request){
         $validator = Validator::make($request->all(),[
