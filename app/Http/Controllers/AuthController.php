@@ -425,7 +425,7 @@ class AuthController extends Controller
                 'nom' => 'string',
                 'email' => 'email',
                 'telephone' => 'digits:10',
-                'image_profil' => 'image|mimes:jpeg,png,jpg|max:2048',
+                'image_profil' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
                 'id_localite' => 'string'
             ]);
             if($validator->fails()){
@@ -434,7 +434,11 @@ class AuthController extends Controller
                     'message' => $validator->errors()->first()
                 ],422);
             }
-            $image = $this->uploadImageToHosting($request->file('image_profil'));
+            $image = null;
+
+            if ($request->hasFile('image_profil')) {
+                $image = $this->uploadImageToHosting($request->file('image_profil'));
+            }
 
             $marchand->nom_marchand = $request->nom ?? $marchand->nom_marchand;
             $marchand->email_marchand = $request->email ?? $marchand->email_marchand;
@@ -453,7 +457,10 @@ class AuthController extends Controller
                     'image_profil' => $marchand->image_marchand,
                     'solde' => $marchand->solde_marchand,
                     'abonnement' => $marchand->abonnement->type_abonnement,
-                    'localite' => $marchand->commune->localite,
+                    'localite' => $marchand->commune ? [
+                        'id' => $marchand->commune->id,
+                        'libelle' => $marchand->commune->localite
+                    ] : null,
                     'device_token' => $marchand->device_token,
 
                 ],
@@ -470,7 +477,7 @@ class AuthController extends Controller
     }
 
         //Mise a jour du profil client
-        public function update_profil_client(Request $request){
+    public function update_profil_client(Request $request){
         $user = $request->user();
         $client = User::where('id', $user->id)->first();
         if(!$client){
@@ -484,7 +491,7 @@ class AuthController extends Controller
                 'nom' => 'string',
                 'email' => 'email',
                 'telephone' => 'digits:10',
-                'image_profil' => 'image|mimes:jpeg,png,jpg|max:2048',
+                'image_profil' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             ]);
             if($validator->fails()){
                 return response()->json([
@@ -492,7 +499,12 @@ class AuthController extends Controller
                     'message' => $validator->errors()->first()
                 ],422);
             }
-            $image = $this->uploadImageToHosting($request->file('image_profil'));
+            $image = null;
+
+            if ($request->hasFile('image_profil')) {
+                $image = $this->uploadImageToHosting($request->file('image_profil'));
+            }
+
 
             $client->nom_client = $request->nom ?? $client->nom_client;
             $client->email_client = $request->email ?? $client->email_client;
@@ -520,30 +532,6 @@ class AuthController extends Controller
                 'erreur' => $e->getMessage()
             ],500);
         }
-    }
-
-
-    private function uploadImageToHosting($image){
-        $apiKey = '9b1ab6564d99aab6418ad53d3451850b';
-
-        // Vérifie que le fichier est une instance valide
-        if (!$image->isValid()) {
-            throw new \Exception("Fichier image non valide.");
-        }
-
-        // Lecture et encodage en base64
-        $imageContent = base64_encode(file_get_contents($image->getRealPath()));
-
-        $response = Http::asForm()->post('https://api.imgbb.com/1/upload', [
-            'key' => $apiKey,
-            'image' => $imageContent,
-        ]);
-
-        if ($response->successful()) {
-            return $response->json()['data']['url'];
-        }
-
-        throw new \Exception("Erreur lors de l'envoi de l'image : " . $response->body());
     }
 
     //Changement de mot de passe marchand
@@ -837,6 +825,148 @@ class AuthController extends Controller
         }
     }
 
+    public function update_profil_admin(Request $request){
+        $user = $request->user();
+        if(!$user){
+            return response()->json([
+                'success' => false,
+                'message' => 'Admin introuvable !'
+            ],404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'nom_admin' => 'nullable',
+            'email_admin'   => 'nullable|email',
+            'tel_admin' => 'nullable|digits:10',
+            'image_profil'   => 'nullable|image|mimes:jpeg,png,jpg|max:2048'
+        ]);
+
+        if($validator->fails()){
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first()
+            ],422);
+        }
+
+        try{
+            $admin = Admin::find($user->id);
+            if(!$admin){
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Admin introuvable'
+                ],404);
+            }
+            $image = null;
+
+            if ($request->hasFile('image_profil')) {
+                $image = $this->uploadImageToHosting($request->file('image_profil'));
+            }
+
+            $admin->nom_admin = $request->nom_admin ?? $admin->nom_admin;
+            $admin->email_admin = $request->email_admin ?? $admin->email_admin;
+            $admin->tel_admin = $request->tel_admin ?? $admin->tel_admin;
+            $admin->image_admin = $image ?? $admin->image_admin;
+            $admin->save();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'id' => $admin->id,
+                    'nom' => $admin->nom_admin,
+                    'email' => $admin->email_admin,
+                    'telephone' => $admin->tel_admin,
+                    'image_profil' => $admin->image_admin,
+                    'role' => $admin->role, 
+                    'created_at' => $admin->created_at,
+                    'updated_at' => $admin->updated_at
+                ],
+                'message' => 'Info de l’admin modifié avec succès'
+            ],200);
+        }
+        catch(QueryException $e){
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la modification des infos du profil de l’administrateur',
+                'erreur' => $e->getMessage()
+            ],500);
+        }
+    }
+
+    public function change_admin_password(Request $request){
+        $user = $request->user();
+        if(!$user){
+            return response()->json([
+                'success' => false,
+                'message' => 'Administrateur introuvable'
+            ],404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'ancien' => 'required',
+            'nouveau' => 'required'
+        ]);
+        if($validator->fails()){
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first()
+            ],422);
+        }
+
+        try{
+            $admin = Admin::find($user->id);
+            if(!$admin){
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Administrateur introuvable'
+                ],404);
+            }
+
+            if(!Hash::check($request->ancien, $admin->password_admin)){
+                return response()->json([
+                    'success' => false,
+                    'message' => 'L’ancien mot de passe est incorrect' 
+                ],400);
+            }
+
+            $admin->password_admin = Hash::make($request->nouveau);
+            $admin->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Mot de passe de l’administrateur changé avec succès'
+            ],200);
+
+        }
+        catch(QueryException $e){
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la modification du mot de passe de l’admin',
+                'erreur' => $e->getMessage()
+            ],500);
+        }
+    }
 
 
+    private function uploadImageToHosting($image){
+        $apiKey = '9b1ab6564d99aab6418ad53d3451850b';
+
+        // Vérifie que le fichier est une instance valide
+        if (!$image->isValid()) {
+            throw new \Exception("Fichier image non valide.");
+        }
+
+        // Lecture et encodage en base64
+        $imageContent = base64_encode(file_get_contents($image->getRealPath()));
+
+        $response = Http::asForm()->post('https://api.imgbb.com/1/upload', [
+            'key' => $apiKey,
+            'image' => $imageContent,
+        ]);
+
+        if ($response->successful()) {
+            return $response->json()['data']['url'];
+        }
+
+        throw new \Exception("Erreur lors de l'envoi de l'image : " . $response->body());
+    }
 }

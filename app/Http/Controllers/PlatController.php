@@ -380,157 +380,134 @@ class PlatController extends Controller
         }
     }
 
-    public function update_plat(Request $request, $id){
+    public function update_plat(Request $request, $id)
+{
+    /**
+     * 🔥 NETTOYAGE autre_image AVANT VALIDATION
+     * - "null" (string) → null réel
+     */
+    if ($request->has('autre_image')) {
+        $cleanImages = collect((array) $request->autre_image)
+            ->map(fn ($item) => $item === 'null' ? null : $item)
+            ->toArray();
+
+        $request->merge([
+            'autre_image' => $cleanImages
+        ]);
+    }
+
+    // ✅ VALIDATION
+    $validator = Validator::make($request->all(), [
+        'nom_plat' => 'required',
+        'description_plat' => 'required',
+        'image_couverture' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+        'autre_image' => 'sometimes|array',
+        'autre_image.*' => 'nullable',
+        'prix_origine' => 'required|numeric|min:1',
+        'prix_reduit' => 'required|numeric|lt:prix_origine|min:0',
+        'quantite_plat' => 'required|integer|min:1',
+        'quantite_disponible' => 'required|integer|min:1',
+        'is_active' => 'nullable|boolean',
+        'id_categorie' => 'required',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'success' => false,
+            'message' => $validator->errors()->first()
+        ], 422);
+    }
+
+    if ($request->quantite_disponible > $request->quantite_plat) {
+        return response()->json([
+            'success' => false,
+            'message' => 'La quantité disponible doit être inférieure ou égale à la quantité totale.'
+        ], 400);
+    }
+
+    try {
+        $categorie = Categorie::find($request->id_categorie);
+        if (!$categorie) {
+            return response()->json(['success' => false, 'message' => 'Categorie non trouvée'], 404);
+        }
+
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Marchand non trouvé'], 404);
+        }
+
+        $plat = Plat::find($id);
+        if (!$plat) {
+            return response()->json(['success' => false, 'message' => 'Plat non trouvé'], 404);
+        }
+
+        // 🖼 Image couverture
+        $imageCouverture = $request->hasFile('image_couverture')
+            ? $this->uploadImageToHosting($request->file('image_couverture'))
+            : $plat->image_couverture;
+
+        $data = [
+            'nom_plat' => $request->nom_plat,
+            'description_plat' => $request->description_plat,
+            'image_couverture' => $imageCouverture,
+            'prix_origine' => $request->prix_origine,
+            'prix_reduit' => $request->prix_reduit,
+            'quantite_plat' => $request->quantite_plat,
+            'quantite_disponible' => $request->quantite_disponible,
+            'is_active' => $request->is_active ?? $plat->is_active,
+            'id_categorie' => $categorie->id,
+        ];
+
         /**
-         * 🔥 NETTOYAGE autre_image AVANT VALIDATION
-         * - "null" (string) → null réel
+         * 🔥 LOGIQUE INDEX + same + null
          */
         if ($request->has('autre_image')) {
-            $cleanImages = collect((array) $request->autre_image)
-                ->map(fn ($item) => $item === 'null' ? null : $item)
-                ->values()
-                ->toArray();
 
-            $request->merge([
-                'autre_image' => $cleanImages
-            ]);
+            $existingImages = $plat->autre_image ?? [];
+            $resultImages   = [];
+
+            foreach ((array) $request->autre_image as $index => $value) {
+
+                // ❌ null → supprimer
+                if ($value === null) {
+                    continue;
+                }
+
+                // 🔁 same → garder l'existante
+                if ($value === 'same' && isset($existingImages[$index])) {
+                    $resultImages[] = $existingImages[$index];
+                    continue;
+                }
+
+                // 🖼 Nouveau fichier → remplacer
+                if ($request->hasFile("autre_image.$index")) {
+                    $file = $request->file("autre_image.$index");
+                    if ($file && $file->isValid()) {
+                        $resultImages[] = $this->uploadImageToHosting($file);
+                    }
+                }
+            }
+
+            $data['autre_image'] = !empty($resultImages) ? array_values($resultImages) : null;
         }
 
-        // ✅ VALIDATION
-        $validator = Validator::make($request->all(), [
-            'nom_plat' => 'required',
-            'description_plat' => 'required',
-            'image_couverture' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
-            'autre_image' => 'sometimes|array',
-            'autre_image.*' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
-            'prix_origine' => 'required|numeric|min:1',
-            'prix_reduit' => 'required|numeric|lt:prix_origine|min:0',
-            'quantite_plat' => 'required|integer|min:1',
-            'quantite_disponible' => 'required|integer|min:1',
-            'is_active' => 'nullable|boolean',
-            'id_categorie' => 'required',
-        ], [
-            'nom_plat.required' => 'Le nom du plat est obligatoire.',
-            'description_plat.required' => 'La description du plat est obligatoire.',
-            'image_couverture.image' => "L’image de couverture doit être une image.",
-            'image_couverture.mimes' => "L’image de couverture doit être au format JPEG, PNG ou JPG.",
-            'image_couverture.max' => "L’image de couverture ne doit pas dépasser 2 Mo.",
-            'autre_image.array' => 'Les autres images doivent être envoyées sous forme de liste.',
-            'autre_image.*.image' => 'Chaque image doit être une image valide.',
-            'autre_image.*.mimes' => 'Chaque image doit être au format JPEG, PNG ou JPG.',
-            'autre_image.*.max' => 'Chaque image ne doit pas dépasser 2 Mo.',
-            'prix_origine.required' => "Le prix d’origine est obligatoire.",
-            'prix_reduit.required' => 'Le prix réduit est obligatoire.',
-            'prix_reduit.lt' => 'Le prix réduit doit être inférieur au prix d\'origine.',
-            'quantite_plat.required' => 'La quantité du plat est obligatoire.',
-            'quantite_disponible.required' => 'La quantité disponible est obligatoire.',
-            'id_categorie.required' => 'La catégorie du plat est obligatoire.',
+        $plat->update($data);
+
+        return response()->json([
+            'success' => true,
+            'data' => $plat->fresh(),
+            'message' => 'Plat modifié avec succès.'
         ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => $validator->errors()->first()
-            ], 422);
-        }
-
-        // ❌ Quantité invalide
-        if ($request->quantite_disponible > $request->quantite_plat) {
-            return response()->json([
-                'success' => false,
-                'message' => 'La quantité disponible doit être inférieure ou égale à la quantité totale.'
-            ], 400);
-        }
-
-        try {
-            // 🔍 Catégorie
-            $categorie = Categorie::find($request->id_categorie);
-            if (!$categorie) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Categorie non trouvée'
-                ], 404);
-            }
-
-            // 🔍 Marchand
-            $user = $request->user();
-            if (!$user) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Marchand non trouvé'
-                ], 404);
-            }
-
-            // 🔍 Plat
-            $plat = Plat::find($id);
-            if (!$plat) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Plat non trouvé'
-                ], 404);
-            }
-
-            // 🖼 Image de couverture
-            $imageCouverture = $request->hasFile('image_couverture')
-                ? $this->uploadImageToHosting($request->file('image_couverture'))
-                : $plat->image_couverture;
-
-            // 📦 Données principales
-            $data = [
-                'nom_plat' => $request->nom_plat,
-                'description_plat' => $request->description_plat,
-                'image_couverture' => $imageCouverture,
-                'prix_origine' => $request->prix_origine,
-                'prix_reduit' => $request->prix_reduit,
-                'quantite_plat' => $request->quantite_plat,
-                'quantite_disponible' => $request->quantite_disponible,
-                'is_active' => $request->is_active ?? $plat->is_active,
-                'id_categorie' => $categorie->id,
-            ];
-
-            /**
-             * 🔥 LOGIQUE FINALE autre_image
-             * - tout null / [] → NULL
-             * - images → URLs
-             */
-            if ($request->has('autre_image')) {
-
-                $files = (array) $request->file('autre_image');
-
-                // ✅ TOUT NULL OU VIDE → NULL
-                if (empty($files) || empty(array_filter($files))) {
-                    $data['autre_image'] = null;
-                }
-                // ✅ AU MOINS UNE IMAGE
-                else {
-                    $urls = [];
-                    foreach ($files as $img) {
-                        if ($img && $img->isValid()) {
-                            $urls[] = $this->uploadImageToHosting($img);
-                        }
-                    }
-
-                    $data['autre_image'] = !empty($urls) ? $urls : null;
-                }
-            }
-
-            // 💾 UPDATE
-            $plat->update($data);
-
-            return response()->json([
-                'success' => true,
-                'data' => $plat->fresh(),
-                'message' => 'Plat modifié avec succès.'
-            ]);
-
-        } catch (\Throwable $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors de la modification du plat',
-                'erreur' => $e->getMessage()
-            ], 500);
-        }
+    } catch (\Throwable $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur lors de la modification du plat',
+            'erreur' => $e->getMessage()
+        ], 500);
     }
+}
+
 
 
 

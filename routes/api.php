@@ -171,4 +171,11 @@ Route::get('/commandes', [CommandeController::class, 'liste_commandes'])->middle
 //Info du solde du marchand
 Route::get('/info/solde/marchand', [MarchandController::class, 'info_solde'])->middleware('auth:marchand');
 
+//Afficher le forfait actif du marchand
 Route::get('/forfait/actif/marchand', [MarchandController::class, 'forfait_actif'])->middleware('auth:marchand');
+
+//Modification du profil et password de l’admin
+Route::middleware('auth:admin')->group(function(){
+    Route::post('/update/admin/profil', [AuthController::class, 'update_profil_admin']);
+    Route::post('/update/password/admin', [AuthController::class, 'change_admin_password']);
+});
