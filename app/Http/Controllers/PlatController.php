@@ -381,11 +381,27 @@ class PlatController extends Controller
     }
 
     public function update_plat(Request $request, $id){
+        /**
+         * 🔥 NETTOYAGE autre_image AVANT VALIDATION
+         * - "null" (string) → null réel
+         */
+        if ($request->has('autre_image')) {
+            $cleanImages = collect((array) $request->autre_image)
+                ->map(fn ($item) => $item === 'null' ? null : $item)
+                ->values()
+                ->toArray();
+
+            $request->merge([
+                'autre_image' => $cleanImages
+            ]);
+        }
+
+        // ✅ VALIDATION
         $validator = Validator::make($request->all(), [
             'nom_plat' => 'required',
             'description_plat' => 'required',
             'image_couverture' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
-            'autre_image' => 'sometimes|nullable|array',
+            'autre_image' => 'sometimes|array',
             'autre_image.*' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'prix_origine' => 'required|numeric|min:1',
             'prix_reduit' => 'required|numeric|lt:prix_origine|min:0',
@@ -418,6 +434,7 @@ class PlatController extends Controller
             ], 422);
         }
 
+        // ❌ Quantité invalide
         if ($request->quantite_disponible > $request->quantite_plat) {
             return response()->json([
                 'success' => false,
@@ -426,6 +443,7 @@ class PlatController extends Controller
         }
 
         try {
+            // 🔍 Catégorie
             $categorie = Categorie::find($request->id_categorie);
             if (!$categorie) {
                 return response()->json([
@@ -434,6 +452,7 @@ class PlatController extends Controller
                 ], 404);
             }
 
+            // 🔍 Marchand
             $user = $request->user();
             if (!$user) {
                 return response()->json([
@@ -442,6 +461,7 @@ class PlatController extends Controller
                 ], 404);
             }
 
+            // 🔍 Plat
             $plat = Plat::find($id);
             if (!$plat) {
                 return response()->json([
@@ -450,11 +470,12 @@ class PlatController extends Controller
                 ], 404);
             }
 
-            // Image couverture
+            // 🖼 Image de couverture
             $imageCouverture = $request->hasFile('image_couverture')
                 ? $this->uploadImageToHosting($request->file('image_couverture'))
                 : $plat->image_couverture;
 
+            // 📦 Données principales
             $data = [
                 'nom_plat' => $request->nom_plat,
                 'description_plat' => $request->description_plat,
@@ -468,19 +489,20 @@ class PlatController extends Controller
             ];
 
             /**
-             * 🔥 LOGIQUE EXACTE POUR autre_image
+             * 🔥 LOGIQUE FINALE autre_image
+             * - tout null / [] → NULL
+             * - images → URLs
              */
             if ($request->has('autre_image')) {
 
                 $files = (array) $request->file('autre_image');
 
-                // Cas 1️⃣ : autre_image[] = [null, null] → NULL en BDD
-                if (!empty($files) && empty(array_filter($files))) {
+                // ✅ TOUT NULL OU VIDE → NULL
+                if (empty($files) || empty(array_filter($files))) {
                     $data['autre_image'] = null;
                 }
-
-                // Cas 2️⃣ : fichiers valides → on remplace
-                elseif (!empty(array_filter($files))) {
+                // ✅ AU MOINS UNE IMAGE
+                else {
                     $urls = [];
                     foreach ($files as $img) {
                         if ($img && $img->isValid()) {
@@ -488,15 +510,11 @@ class PlatController extends Controller
                         }
                     }
 
-                    if (!empty($urls)) {
-                        $data['autre_image'] = $urls;
-                    }
+                    $data['autre_image'] = !empty($urls) ? $urls : null;
                 }
-
-                // Cas 3️⃣ : autre_image = [] → ON NE TOUCHE PAS (aucune affectation)
             }
-            // ❗ Si autre_image n’est PAS dans la requête → inchangé
 
+            // 💾 UPDATE
             $plat->update($data);
 
             return response()->json([
@@ -513,6 +531,7 @@ class PlatController extends Controller
             ], 500);
         }
     }
+
 
 
 
