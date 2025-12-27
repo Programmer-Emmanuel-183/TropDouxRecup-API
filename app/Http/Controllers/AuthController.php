@@ -358,7 +358,11 @@ class AuthController extends Controller
                     'role' => 'marchand',
                     'solde' => $marchand->solde_marchand,
                     'abonnement' => $marchand->abonnement->type_abonnement ?? null,
-                    'localite' => $marchand->commune->localite ?? null,
+                    'localite' => $marchand->commune ? [
+                        'id' => $marchand->commune->id,
+                        'localite' => $marchand->commune->localite,
+                        'created_at' => $marchand->commune->created_at
+                    ] : null,
                     'device_token' => $marchand->device_token,
                 ],
                 'message' => 'Information du profil affichée avec succès'
