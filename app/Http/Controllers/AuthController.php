@@ -360,8 +360,7 @@ class AuthController extends Controller
                     'abonnement' => $marchand->abonnement->type_abonnement ?? null,
                     'localite' => $marchand->commune ? [
                         'id' => $marchand->commune->id,
-                        'localite' => $marchand->commune->localite,
-                        'created_at' => $marchand->commune->created_at
+                        'libelle' => $marchand->commune->localite,
                     ] : null,
                     'device_token' => $marchand->device_token,
                 ],
