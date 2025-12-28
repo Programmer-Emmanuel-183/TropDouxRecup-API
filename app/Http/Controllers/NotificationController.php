@@ -63,7 +63,6 @@ class NotificationController extends Controller
 
     public function envoyer_notification_client(Request $request, $device_token){
         $validator = Validator::make($request->all(), [
-            'type' => 'required',
             'title' => 'required',
             'body' => 'required',
         ]);
@@ -84,7 +83,7 @@ class NotificationController extends Controller
             }
 
             $notification = new Notification();
-            $notification->type = $request->type; 
+            $notification->type = 'Promotion'; 
             $notification->title = $request->title;
             $notification->body = $request->body;
             $notification->role = 'client';
@@ -107,7 +106,6 @@ class NotificationController extends Controller
 
     public function envoyer_notification_marchand(Request $request, $device_token){
         $validator = Validator::make($request->all(), [
-            'type' => 'required',
             'title' => 'required',
             'body' => 'required',
         ]);
@@ -128,7 +126,7 @@ class NotificationController extends Controller
             }
 
             $notification = new Notification();
-            $notification->type = $request->type; 
+            $notification->type = 'Promotion'; 
             $notification->title = $request->title;
             $notification->body = $request->body;
             $notification->role = 'marchand';
@@ -151,7 +149,6 @@ class NotificationController extends Controller
 
     public function envoyer_notification_tous_clients(Request $request){
         $validator = Validator::make($request->all(), [
-            'type' => 'required',
             'title' => 'required',
             'body' => 'required',
         ]);
@@ -175,7 +172,7 @@ class NotificationController extends Controller
 
             foreach ($clients as $client) {
                 Notification::create([
-                    'type' => $request->type,
+                    'type' => 'Promotion',
                     'title' => $request->title,
                     'body' => $request->body,
                     'role' => 'client',
@@ -200,7 +197,6 @@ class NotificationController extends Controller
 
     public function envoyer_notification_tous_marchands(Request $request){
         $validator = Validator::make($request->all(), [
-            'type' => 'required',
             'title' => 'required',
             'body' => 'required',
         ]);
@@ -224,7 +220,7 @@ class NotificationController extends Controller
 
             foreach ($marchands as $marchand) {
                 Notification::create([
-                    'type' => $request->type,
+                    'type' => 'Promotion',
                     'title' => $request->title,
                     'body' => $request->body,
                     'role' => 'marchand',
@@ -248,7 +244,6 @@ class NotificationController extends Controller
 
     public function envoyer_notification_tout_le_monde(Request $request){
         $validator = Validator::make($request->all(), [
-            'type' => 'required',
             'title' => 'required',
             'body' => 'required',
         ]);
@@ -273,7 +268,7 @@ class NotificationController extends Controller
 
             foreach ($clients as $client) {
                 Notification::create([
-                    'type' => $request->type,
+                    'type' => 'Promotion',
                     'title' => $request->title,
                     'body' => $request->body,
                     'role' => 'client',
@@ -283,7 +278,7 @@ class NotificationController extends Controller
 
             foreach ($marchands as $marchand) {
                 Notification::create([
-                    'type' => $request->type,
+                    'type' => 'Promotion',
                     'title' => $request->title,
                     'body' => $request->body,
                     'role' => 'marchand',
