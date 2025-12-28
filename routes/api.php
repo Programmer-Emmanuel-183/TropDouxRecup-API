@@ -131,7 +131,7 @@ Route::middleware('auth:client')->group(function(){
 //Commandes du marchand
 Route::middleware('auth:marchand')->group(function(){
     Route::get('/commandes/marchand', [CommandeController::class, 'commandes_marchand']);
-    Route::post('/marquer/recuperer', [CommandeController::class, 'marquer_comme_recupere']);
+    Route::get('/marquer/recuperer', [CommandeController::class, 'marquer_comme_recupere']);
     Route::get('/commande/{code_commande}', [CommandeController::class, 'sous_commandes_par_code']);
 });
 
