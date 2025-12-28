@@ -11,6 +11,7 @@ use App\Http\Controllers\CommissionController;
 use App\Http\Controllers\GestionClientMarchandController;
 use App\Http\Controllers\LocaliteController;
 use App\Http\Controllers\MarchandController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PanierController;
 use App\Http\Controllers\PlatController;
 use Illuminate\Http\Request;
@@ -179,3 +180,17 @@ Route::middleware('auth:admin')->group(function(){
     Route::post('/update/admin/profil', [AuthController::class, 'update_profil_admin']);
     Route::post('/update/password/admin', [AuthController::class, 'change_admin_password']);
 });
+
+//Update device Token
+Route::post('/update/device/token', [NotificationController::class, 'update_device_token'])->middleware('auth:sanctum');
+
+//Notifications
+Route::middleware('auth:admin')->group(function(){
+    Route::post('/envoyer/notification/client/{device_token}', [NotificationController::class, 'envoyer_notification_client']);
+    Route::post('/envoyer/notification/marchand/{device_token}', [NotificationController::class, 'envoyer_notification_marchand']);
+    Route::post('/envoyer/notification/clients', [NotificationController::class, 'envoyer_notification_tous_clients']);
+    Route::post('/envoyer/notification/marchands', [NotificationController::class, 'envoyer_notification_tous_marchands']);
+    Route::post('/envoyer/notification/utilisateurs', [NotificationController::class, 'envoyer_notification_tout_le_monde']);
+});
+Route::get('/notifications/client', [NotificationController::class, 'notif_client'])->middleware('auth:client');
+Route::get('/notifications/marchand', [NotificationController::class, 'notif_marchand'])->middleware('auth:marchand');
