@@ -21,7 +21,7 @@ class AdminController extends Controller
                 'success' => true,
                 'data' => 0,
                 'message' => 'Accès non permis'
-            ],403);
+            ],200);
         }
 
         try{

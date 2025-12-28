@@ -193,4 +193,6 @@ Route::middleware('auth:admin')->group(function(){
     Route::post('/envoyer/notification/utilisateurs', [NotificationController::class, 'envoyer_notification_tout_le_monde']);
 });
 Route::get('/notifications/client', [NotificationController::class, 'notif_client'])->middleware('auth:client');
+Route::post('/notifications/client/a-lue', [NotificationController::class, 'notif_client_lue'])->middleware('auth:client');
 Route::get('/notifications/marchand', [NotificationController::class, 'notif_marchand'])->middleware('auth:marchand');
+Route::post('/notifications/marchand/a-lue', [NotificationController::class, 'notif_marchand_lue'])->middleware('auth:marchand');

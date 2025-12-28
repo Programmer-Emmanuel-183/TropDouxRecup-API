@@ -307,90 +307,174 @@ class NotificationController extends Controller
 
 
     public function notif_client(Request $request){
-        try{
+        try {
             $user = $request->user();
             $client = User::find($user->id);
 
-            if(!$client){
+            if (!$client) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Client non trouvé'
-                ],404);
+                ], 404);
             }
 
-            $notifications = Notification::where('id_user', $client->id)->get();
-            if($notifications->isEmpty()){
+            $query = Notification::where('id_user', $client->id);
+
+            // 🔥 Filtre is_read via query params
+            if ($request->has('is_read')) {
+                $query->where('is_read', (bool) $request->is_read);
+            }
+
+            $notifications = $query
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            if ($notifications->isEmpty()) {
                 return response()->json([
                     'success' => true,
                     'data' => [],
-                    'message' => 'Aucune notifications trouvées'
-                ],200);
+                    'message' => 'Aucune notification trouvée'
+                ], 200);
             }
-            $data = $notifications->map(function($notification){
-                return [
-                    'id' => $notification->id,
-                    'type' => $notification->type,
-                    'title' => $notification->title,
-                    'body' => $notification->body,
-                ];
-            });
-            
+
+            $data = $notifications->map(fn ($notification) => [
+                'id'         => $notification->id,
+                'type'       => $notification->type,
+                'title'      => $notification->title,
+                'message'    => $notification->body,
+                'isRead'     => (bool) $notification->is_read,
+                'created_at' => $notification->created_at,
+            ]);
+
             return response()->json([
                 'success' => true,
                 'data' => $data,
                 'message' => 'Notifications affichées avec succès'
-            ],200);
-        }
-        catch(QueryException $e){
+            ], 200);
+
+        } catch (QueryException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de l’affichage des notifications du client',
                 'erreur' => $e->getMessage()
-            ],500);
+            ], 500);
         }
     }
 
+
     public function notif_marchand(Request $request){
-        try{
+        try {
             $user = $request->user();
             $marchand = Marchand::find($user->id);
 
-            if(!$marchand){
+            if (!$marchand) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Marchand non trouvé'
-                ],404);
+                ], 404);
             }
 
-            $notifications = Notification::where('id_user', $marchand->id)->get();
-            if($notifications->isEmpty()){
+            $query = Notification::where('id_user', $marchand->id);
+
+            // 🔥 Filtre is_read
+            if ($request->has('is_read')) {
+                $query->where('is_read', (bool) $request->is_read);
+            }
+
+            $notifications = $query
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            if ($notifications->isEmpty()) {
                 return response()->json([
                     'success' => true,
                     'data' => [],
-                    'message' => 'Aucune notifications trouvées'
-                ],200);
+                    'message' => 'Aucune notification trouvée'
+                ], 200);
             }
-            $data = $notifications->map(function($notification){
-                return [
-                    'id' => $notification->id,
-                    'type' => $notification->type,
-                    'title' => $notification->title,
-                    'body' => $notification->body,
-                ];
-            });
-            
+
+            $data = $notifications->map(fn ($notification) => [
+                'id'         => $notification->id,
+                'type'       => $notification->type,
+                'title'      => $notification->title,
+                'message'    => $notification->body,
+                'isRead'     => (bool) $notification->is_read,
+                'created_at' => $notification->created_at,
+            ]);
+
             return response()->json([
                 'success' => true,
                 'data' => $data,
                 'message' => 'Notifications affichées avec succès'
+            ], 200);
+
+        } catch (QueryException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l’affichage des notifications du marchand',
+                'erreur' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function notif_marchand_lue(Request $request){
+        try{
+            $user = $request->user();
+            $marchand = Marchand::find($user->id);
+            if(!$marchand){
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Marchand introuvable'
+                ],404);
+            }
+
+            $notifications = Notification::where('id_user', $marchand->id)->where('is_read', '!=', 1)->get();
+            $notifications->map(function($notification){
+                $notification->is_read = 1;
+                $notification->save();
+            });
+            return response()->json([
+                'success' => true,
+                'message' => 'Toute les notifications mises à lues avec succès'
             ],200);
         }
         catch(QueryException $e){
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de l’affichage des notifications du client',
+                'message' => 'Erreur lors de la mise des notifications du marchand à lue.',
                 'erreur' => $e->getMessage()
             ],500);
         }
     }
+
+    public function notif_client_lue(Request $request){
+        try{
+            $user = $request->user();
+            $client = User::find($user->id);
+            if(!$client){
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Client introuvable'
+                ],404);
+            }
+
+            $notifications = Notification::where('id_user', $client->id)->where('is_read', '!=', 1)->get();
+            $notifications->map(function($notification){
+                $notification->is_read = 1;
+                $notification->save();
+            });
+            return response()->json([
+                'success' => true,
+                'message' => 'Toute les notifications mises à lues avec succès'
+            ],200);
+        }
+        catch(QueryException $e){
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la mise des notifications du client à lue.',
+                'erreur' => $e->getMessage()
+            ],500);
+        }
+    }
+
 }
