@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Marchand;
 use App\Models\Notification;
 use App\Models\User;
+use GuzzleHttp\Psr7\Query;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -467,6 +468,42 @@ class NotificationController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la mise des notifications du client à lue.',
+                'erreur' => $e->getMessage()
+            ],500);
+        }
+    }
+
+    public function nombre_notif_non_lue(Request $request){
+        try{
+            $user = $request->user();
+            $marchand = Marchand::find($user->id);
+            $client = User::find($user->id);
+            if($marchand){
+                $notification = Notification::where('id_user', $marchand->id)->where('is_read', 0)->count();
+                return response()->json([
+                    'success' => true,
+                    'data' => $notification,
+                    'message' => 'Nombre de notifications non lues du marchand affichées avec succès'
+                ],200);
+            }
+            if($client){
+                $notification = Notification::where('id_user', $client->id)->where('is_read', 0)->count();
+                return response()->json([
+                    'success' => true,
+                    'data' => $notification,
+                    'message' => 'Nombre de notifications non lues du client affichées avec succès'
+                ],200);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Utilisateur introuvable'
+            ],404);
+        }
+        catch(QueryException $e){
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l’affichage des notifications non lues',
                 'erreur' => $e->getMessage()
             ],500);
         }

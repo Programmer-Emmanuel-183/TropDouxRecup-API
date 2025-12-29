@@ -196,3 +196,4 @@ Route::get('/notifications/client', [NotificationController::class, 'notif_clien
 Route::post('/notifications/client/a-lue', [NotificationController::class, 'notif_client_lue'])->middleware('auth:client');
 Route::get('/notifications/marchand', [NotificationController::class, 'notif_marchand'])->middleware('auth:marchand');
 Route::post('/notifications/marchand/a-lue', [NotificationController::class, 'notif_marchand_lue'])->middleware('auth:marchand');
+Route::get('/nombre/notification/non/lues', [NotificationController::class, 'nombre_notif_non_lue'])->middleware('auth:sanctum');
