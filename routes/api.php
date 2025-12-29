@@ -14,6 +14,7 @@ use App\Http\Controllers\MarchandController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PanierController;
 use App\Http\Controllers\PlatController;
+use App\Http\Controllers\TransactionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -197,3 +198,6 @@ Route::post('/notifications/client/a-lue', [NotificationController::class, 'noti
 Route::get('/notifications/marchand', [NotificationController::class, 'notif_marchand'])->middleware('auth:marchand');
 Route::post('/notifications/marchand/a-lue', [NotificationController::class, 'notif_marchand_lue'])->middleware('auth:marchand');
 Route::get('/nombre/notification/non/lues', [NotificationController::class, 'nombre_notif_non_lue'])->middleware('auth:sanctum');
+
+//Transactions
+Route::get('/historiques/transaction/marchand', [TransactionController::class, 'historiques_marchand'])->middleware('auth:marchand');

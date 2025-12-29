@@ -5,17 +5,18 @@ namespace App\Http\Controllers;
 use App\Models\Admin;
 use App\Models\Commande;
 use App\Models\Commission;
+use App\Models\Notification;
 use App\Models\Panier;
 use App\Models\Plat;
 use App\Models\SousCommande;
+use App\Models\Transaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class CommandeController extends Controller
 {
-    public function passer_commande(Request $request)
-    {
+    public function passer_commande(Request $request){
         $validator = Validator::make($request->all(), [
             'id_item' => 'required|array',
             'id_item.*' => 'exists:paniers,id'
@@ -43,6 +44,7 @@ class CommandeController extends Controller
                 ], 404);
             }
 
+            // 🔒 Vérification plats supprimés
             foreach ($paniers as $panier) {
                 $plat = Plat::whereNull('deleted_at')
                     ->where('id', $panier->id_plat)
@@ -56,7 +58,7 @@ class CommandeController extends Controller
                 }
             }
 
-
+            // 🔒 Vérification stock
             foreach ($paniers as $panier) {
                 if ($panier->plat->quantite_disponible < $panier->quantite) {
                     return response()->json([
@@ -68,14 +70,18 @@ class CommandeController extends Controller
 
             $commission = Commission::first();
 
-
             $commande = new Commande();
-            $commande->statut = "pending";
+            $commande->statut = 'pending';
             $commande->save();
+
+            // Pour regrouper les commandes par marchand (notifications)
+            $marchandCommandes = [];
 
             foreach ($paniers as $panier) {
 
                 $plat = $panier->plat;
+
+                // Mise à jour stock
                 $plat->quantite_disponible -= $panier->quantite;
                 $plat->save();
 
@@ -85,19 +91,24 @@ class CommandeController extends Controller
                 $sous->id_client = $client->id;
                 $sous->id_plat = $panier->id_plat;
                 $sous->quantite_plat = $panier->quantite;
-                $sous->id_marchand = $panier->plat->id_marchand;
+                $sous->id_marchand = $plat->id_marchand;
                 $sous->statut = 'pending';
                 $sous->code_commande = "TDR-" . strtoupper(substr($commande->id, 0, 6));
+
                 $svg = QrCode::format('svg')->size(200)->generate($sous->code_commande);
                 $sous->code_qr = 'data:image/svg+xml;base64,' . base64_encode($svg);
                 $sous->save();
+
+                // 📦 Regroupement pour notification marchand
+                $marchandCommandes[$plat->id_marchand][] = $sous;
             }
 
+            // Nettoyage paniers
             Panier::where('id_client', $client->id)
                 ->whereIn('id', $request->id_item)
                 ->delete();
 
-            $sousCommandes = SousCommande::with('plat')
+            $sousCommandes = SousCommande::with(['plat.marchand'])
                 ->where('id_commande', $commande->id)
                 ->get();
 
@@ -107,7 +118,7 @@ class CommandeController extends Controller
             $totalPrice = 0;
             $totalQuantity = 0;
 
-            $admin = Admin::where('role', 2)->first(); // sortir de la boucle
+            $admin = Admin::where('role', 2)->first();
 
             foreach ($sousCommandes as $sc) {
 
@@ -115,22 +126,19 @@ class CommandeController extends Controller
                 $marchand = $plat->marchand;
 
                 $montantTotal = $plat->prix_reduit * $sc->quantite_plat;
-                $commissionAdmin = ($montantTotal * $commission->pourcentage) / 100;
+                $commissionAdmin = ($montantTotal * ($commission->pourcentage ?? 0)) / 100;
                 $partMarchand = $montantTotal - $commissionAdmin;
 
-                // Mise à jour du solde du marchand
                 $marchand->solde_marchand += $partMarchand;
                 $marchand->save();
 
-                // Mise à jour solde admin
                 $admin->solde += $commissionAdmin;
 
-                // Construire les infos plats pour la réponse JSON
                 $dishes[] = [
                     'id' => $sc->id_plat,
-                    'name' => $sc->plat->nom_plat,
+                    'name' => $plat->nom_plat,
                     'quantity' => $sc->quantite_plat,
-                    'unit_price' => $sc->plat->prix_reduit,
+                    'unit_price' => $plat->prix_reduit,
                     'code_qr' => $sc->code_qr
                 ];
 
@@ -138,21 +146,47 @@ class CommandeController extends Controller
                 $totalQuantity += $sc->quantite_plat;
             }
 
-            $admin->save(); // sauvegarde finale (1 seule fois)
+            $admin->save();
 
+
+            $notification_client = new Notification();
+            $notification_client->type = 'Commande';
+            $notification_client->title = 'Commande effectuée 🎉';
+            $notification_client->body = "Votre commande a été envoyée avec succès.";
+            $notification_client->role = 'client';
+            $notification_client->id_user = $client->id;
+            $notification_client->save();
+
+            foreach ($marchandCommandes as $idMarchand => $commandes) {
+
+                $marchand = $commandes[0]->plat->marchand;
+                $nbPlats = collect($commandes)->sum('quantite_plat');
+
+                $notification_marchand = new Notification();
+                $notification_marchand->type = 'Commande';
+                $notification_marchand->title = 'Nouvelle commande 📦';
+                $notification_marchand->body = "Vous avez reçu une nouvelle commande de {$client->nom_client} ({$nbPlats} plat(s)).";
+                $notification_marchand->role = 'marchand';
+                $notification_marchand->id_user = $marchand->id;
+                $notification_marchand->save();
+            }
 
             return response()->json([
-                'id' => $commande->id,
-                'orderId' => $orderId,
-                'customerName' => $client->nom_client,
-                'status' => $commande->statut,
-                'createdAt' => $commande->created_at,
-                'commission' => $commission->pourcentage ?? 0,
-                'totalPriceOrder' => $totalPrice,
-                'orderLength' => $totalQuantity,
-                'completedAt' => null,
-                'dishes' => $dishes
-            ]);
+                'success' => true,
+                'data' => [
+                    'id' => $commande->id,
+                    'orderId' => $orderId,
+                    'customerName' => $client->nom_client,
+                    'status' => $commande->statut,
+                    'createdAt' => $commande->created_at,
+                    'commission' => $commission->pourcentage ?? 0,
+                    'totalPriceOrder' => $totalPrice,
+                    'orderLength' => $totalQuantity,
+                    'completedAt' => null,
+                    'dishes' => $dishes
+                ],
+                'message' => 'Commande effectuée avec succès'
+            ],200);
 
         } catch (\Exception $e) {
             return response()->json([
@@ -161,6 +195,7 @@ class CommandeController extends Controller
             ], 500);
         }
     }
+
 
     public function commandes_client(Request $request){
         try {
@@ -408,6 +443,43 @@ class CommandeController extends Controller
 
                 $totalPrice += ($s->plat?->prix_reduit ?? 0) * $s->quantite_plat;
                 $totalQuantity += $s->quantite_plat;
+            }
+
+            $client = $sousCommandes->first()->client;
+            if(!$client){
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Client non trouvé'
+                ],404);
+            }
+
+            $notification_client = new Notification();
+            $notification_client->type = 'Commande';
+            $notification_client->title = 'Votre commande a été récupérée avec succès 🎉';
+            $notification_client->body =  "Votre commande #{$codeCommande} a bien été récupérée chez {$marchand->nom_marchand}. Merci pour votre confiance 🙏";
+            $notification_client->role = 'client';
+            $notification_client->id_user = $client->id;
+            $notification_client->save();
+
+            $notification_marchand = new Notification();
+            $notification_marchand->type = 'Commande';
+            $notification_marchand->title = "Commande #{$codeCommande} récupérée avec succès ✅";
+            $notification_marchand->body = "Le client {$client->nom_client} a récupéré sa commande avec succès.";
+            $notification_marchand->role = 'marchand';
+            $notification_marchand->id_user = $marchand->id;
+            $notification_marchand->save();
+
+            $alreadyCredited = Transaction::where('libelle', "Commande #{$codeCommande}")
+                ->where('id_user', $marchand->id)
+                ->exists();
+
+            if (!$alreadyCredited) {
+                $transaction = new Transaction();
+                $transaction->amount = $totalPrice;
+                $transaction->type = 'credit';
+                $transaction->libelle = "Commande #{$codeCommande}";
+                $transaction->id_user = $marchand->id;
+                $transaction->save();
             }
 
             return response()->json([
