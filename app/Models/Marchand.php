@@ -25,7 +25,8 @@ class Marchand extends Authenticatable
         'image_marchand',
         'id_abonnement',
         'date_abonnement',
-        'id_commune'
+        'id_commune',
+        'password_reset_token'
     ];
 
 

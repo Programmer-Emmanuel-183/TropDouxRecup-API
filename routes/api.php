@@ -193,6 +193,8 @@ Route::middleware('auth:admin')->group(function(){
     Route::post('/envoyer/notification/clients', [NotificationController::class, 'envoyer_notification_tous_clients']);
     Route::post('/envoyer/notification/marchands', [NotificationController::class, 'envoyer_notification_tous_marchands']);
     Route::post('/envoyer/notification/utilisateurs', [NotificationController::class, 'envoyer_notification_tout_le_monde']);
+    Route::post('/envoyer/notification/quelques/clients', [NotificationController::class, 'envoyer_notification_certains_client']);
+    Route::post('/envoyer/notification/quelques/marchands', [NotificationController::class, 'envoyer_notification_certains_marchand']);
 });
 Route::get('/notifications/client', [NotificationController::class, 'notif_client'])->middleware('auth:client');
 Route::post('/notifications/client/a-lue', [NotificationController::class, 'notif_client_lue'])->middleware('auth:client');
@@ -205,3 +207,8 @@ Route::get('/historiques/transaction/marchand', [TransactionController::class, '
 
 //Facturations
 Route::get('/historiques/facturation/marchand',[FacturationController::class, 'historiques_facturation'])->middleware('auth:marchand');
+
+//Mot de passe oublié
+Route::post('/demande/reinitialisation/password', [AuthController::class, 'demande_reset_password']);
+Route::post('/verification/token/password', [AuthController::class, 'verify_otp_password']);
+Route::post('/reinitialisation/password', [AuthController::class, 'nouveau_password']);

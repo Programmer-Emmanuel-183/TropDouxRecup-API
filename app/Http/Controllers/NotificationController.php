@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Marchand;
 use App\Models\Notification;
 use App\Models\User;
-use GuzzleHttp\Psr7\Query;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -294,8 +293,8 @@ class NotificationController extends Controller
                     'role' => 'marchand',
                     'id_user' => $marchand->id,
                 ]);
-                app(PushNotifController::class)->sendPushBatch($notif_marchands);
             }
+            app(PushNotifController::class)->sendPushBatch($notif_marchands);
 
             return response()->json([
                 'success' => true,
@@ -310,6 +309,128 @@ class NotificationController extends Controller
             ], 500);
         }
     }
+
+    public function envoyer_notification_certains_client(Request $request){
+        $validator = Validator::make($request->all(), [
+            'device_tokens' => 'required|array|min:1',
+            'device_tokens.*' => 'string',
+            'title' => 'required|string',
+            'body' => 'required|string'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first()
+            ], 422);
+        }
+
+        try {
+            /**
+             * 🔍 Récupération des clients ciblés
+             */
+            $clients = User::whereIn('device_token', $request->device_tokens)->get();
+
+            if ($clients->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Aucun client correspondant aux device_tokens'
+                ], 404);
+            }
+
+            /**
+             * 🧾 Création des notifications (BDD)
+             */
+            $notifications = [];
+
+            foreach ($clients as $client) {
+                $notifications[] = Notification::create([
+                    'type' => 'Promotion',
+                    'title' => $request->title,
+                    'body' => $request->body,
+                    'role' => 'client',
+                    'id_user' => $client->id,
+                ]);
+            }
+
+            app(PushNotifController::class)->sendPushBatch($notifications);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Notification envoyée aux clients sélectionnés',
+                'nombre' => count($notifications)
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l’envoi',
+                'erreur' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+        public function envoyer_notification_certains_marchand(Request $request){
+        $validator = Validator::make($request->all(), [
+            'device_tokens' => 'required|array|min:1',
+            'device_tokens.*' => 'string',
+            'title' => 'required|string',
+            'body' => 'required|string'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first()
+            ], 422);
+        }
+
+        try {
+            /**
+             * 🔍 Récupération des clients ciblés
+             */
+            $marchands = Marchand::whereIn('device_token', $request->device_tokens)->get();
+
+            if ($marchands->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Aucun marchand correspondant aux device_tokens'
+                ], 404);
+            }
+
+            /**
+             * 🧾 Création des notifications (BDD)
+             */
+            $notifications = [];
+
+            foreach ($marchands as $marchand) {
+                $notifications[] = Notification::create([
+                    'type' => 'Promotion',
+                    'title' => $request->title,
+                    'body' => $request->body,
+                    'role' => 'marchand',
+                    'id_user' => $marchand->id,
+                ]);
+            }
+
+            app(PushNotifController::class)->sendPushBatch($notifications);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Notification envoyée aux marchands sélectionnés',
+                'nombre' => count($notifications)
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l’envoi',
+                'erreur' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
 
 
     public function notif_client(Request $request){
