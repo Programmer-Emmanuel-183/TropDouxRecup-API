@@ -91,6 +91,8 @@ class NotificationController extends Controller
             $notification->id_user = $client->id;
             $notification->save();
 
+            app(PushNotifController::class)->sendPush($notification);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Notification envoyé avec succès au client'
@@ -134,6 +136,8 @@ class NotificationController extends Controller
             $notification->id_user = $marchand->id;
             $notification->save();
 
+            app(PushNotifController::class)->sendPush($notification);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Notification envoyé avec succès au marchand'
@@ -170,9 +174,9 @@ class NotificationController extends Controller
                     'message' => 'Aucun client avec device_token'
                 ], 404);
             }
-
+            $notifications = [];
             foreach ($clients as $client) {
-                Notification::create([
+                $notifications[] = Notification::create([
                     'type' => 'Promotion',
                     'title' => $request->title,
                     'body' => $request->body,
@@ -180,6 +184,7 @@ class NotificationController extends Controller
                     'id_user' => $client->id,
                 ]);
             }
+            app(PushNotifController::class)->sendPushBatch($notifications);
 
             return response()->json([
                 'success' => true,
@@ -218,9 +223,9 @@ class NotificationController extends Controller
                     'message' => 'Aucun marchand avec device_token'
                 ], 404);
             }
-
+            $notifications = [];
             foreach ($marchands as $marchand) {
-                Notification::create([
+                $notifications[] = Notification::create([
                     'type' => 'Promotion',
                     'title' => $request->title,
                     'body' => $request->body,
@@ -228,6 +233,8 @@ class NotificationController extends Controller
                     'id_user' => $marchand->id,
                 ]);
             }
+            app(PushNotifController::class)->sendPushBatch($notifications);
+
 
             return response()->json([
                 'success' => true,
@@ -266,9 +273,9 @@ class NotificationController extends Controller
                     'message' => 'Aucun utilisateur avec device_token'
                 ], 404);
             }
-
+            $notif_clients = [];
             foreach ($clients as $client) {
-                Notification::create([
+                $notif_clients[] = Notification::create([
                     'type' => 'Promotion',
                     'title' => $request->title,
                     'body' => $request->body,
@@ -276,15 +283,18 @@ class NotificationController extends Controller
                     'id_user' => $client->id,
                 ]);
             }
+            app(PushNotifController::class)->sendPushBatch($notif_clients);
 
+            $notif_marchands = [];
             foreach ($marchands as $marchand) {
-                Notification::create([
+                $notif_marchands[] = Notification::create([
                     'type' => 'Promotion',
                     'title' => $request->title,
                     'body' => $request->body,
                     'role' => 'marchand',
                     'id_user' => $marchand->id,
                 ]);
+                app(PushNotifController::class)->sendPushBatch($notif_marchands);
             }
 
             return response()->json([

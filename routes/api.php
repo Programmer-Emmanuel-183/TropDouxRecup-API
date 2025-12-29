@@ -8,6 +8,7 @@ use App\Http\Controllers\AvantageController;
 use App\Http\Controllers\CategorieController;
 use App\Http\Controllers\CommandeController;
 use App\Http\Controllers\CommissionController;
+use App\Http\Controllers\FacturationController;
 use App\Http\Controllers\GestionClientMarchandController;
 use App\Http\Controllers\LocaliteController;
 use App\Http\Controllers\MarchandController;
@@ -201,3 +202,6 @@ Route::get('/nombre/notification/non/lues', [NotificationController::class, 'nom
 
 //Transactions
 Route::get('/historiques/transaction/marchand', [TransactionController::class, 'historiques_marchand'])->middleware('auth:marchand');
+
+//Facturations
+Route::get('/historiques/facturation/marchand',[FacturationController::class, 'historiques_facturation'])->middleware('auth:marchand');

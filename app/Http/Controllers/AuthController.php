@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Mail\OtpMail;
 use App\Models\Abonnement;
 use App\Models\Admin;
+use App\Models\Facturation;
 use App\Models\Marchand;
 use App\Models\User;
 use Carbon\Carbon;
@@ -187,6 +188,12 @@ class AuthController extends Controller
                     'otp_expire_at' => null,
                     'id_abonnement' => $abonnement->id
                 ]);
+
+                $facturation = new Facturation();
+                $facturation->nom_abonnement = 'debutant';
+                $facturation->montant = 0;
+                $facturation->id_user = $marchand->id;
+                $facturation->save();
 
                 return response()->json([
                     'success' => true,

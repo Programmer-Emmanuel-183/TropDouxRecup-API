@@ -27,6 +27,7 @@ class GestionClientMarchandController extends Controller
                     'email' => $client->email_client,
                     'telephone' => $client->tel_client,
                     'image' => $client->image_client,
+                    'device_token' => $client->device_token,
                     'created_at' => $client->created_at,
                     'updated_at' => $client->updated_at,
                 ];
@@ -66,6 +67,7 @@ class GestionClientMarchandController extends Controller
                     'email' => $client->email_client,
                     'telephone' => $client->tel_client,
                     'image' => $client->image_client,
+                    'device_token' => $client->device_token,
                     'created_at' => $client->created_at,
                     'updated_at' => $client->updated_at,
                 ],
@@ -127,6 +129,7 @@ class GestionClientMarchandController extends Controller
                     'email' => $marchand->email_marchand,
                     'telephone' => $marchand->tel_marchand,
                     'image' => $marchand->image_marchand,
+                    'device_token' => $marchand->device_token,
                     'localite' => $marchand->commune->localite,
                     'abonnement' => $marchand->abonnement->type_abonnement,
                     'created_at' => $marchand->created_at
@@ -166,6 +169,7 @@ class GestionClientMarchandController extends Controller
                     'email' => $marchand->email_marchand,
                     'telephone' => $marchand->tel_marchand,
                     'image' => $marchand->image_marchand,
+                    'device_token' => $marchand->device_token,
                     'localite' => $marchand->commune->localite,
                     'abonnement' => $marchand->abonnement->type_abonnement,
                     'created_at' => $marchand->created_at

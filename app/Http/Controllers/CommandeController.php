@@ -156,20 +156,35 @@ class CommandeController extends Controller
             $notification_client->role = 'client';
             $notification_client->id_user = $client->id;
             $notification_client->save();
+            app(PushNotifController::class)->sendPush($notification_client);
+
+            $notifications = [];
 
             foreach ($marchandCommandes as $idMarchand => $commandes) {
 
                 $marchand = $commandes[0]->plat->marchand;
                 $nbPlats = collect($commandes)->sum('quantite_plat');
 
-                $notification_marchand = new Notification();
-                $notification_marchand->type = 'Commande';
-                $notification_marchand->title = 'Nouvelle commande 📦';
-                $notification_marchand->body = "Vous avez reçu une nouvelle commande de {$client->nom_client} ({$nbPlats} plat(s)).";
-                $notification_marchand->role = 'marchand';
-                $notification_marchand->id_user = $marchand->id;
-                $notification_marchand->save();
+                $notification = Notification::create([
+                    'type' => 'Commande',
+                    'title' => 'Nouvelle commande 📦',
+                    'body' => "Vous avez reçu une nouvelle commande de {$client->nom_client} ({$nbPlats} plat(s)).",
+                    'role' => 'marchand',
+                    'id_user' => $marchand->id,
+                ]);
+
+                $notifications[] = $notification;
             }
+
+            // 🔥 ENVOI OPTIMISÉ
+            $pushService = app(PushNotifController::class);
+
+            if (count($notifications) === 1) {
+                $pushService->sendPush($notifications[0]);
+            } else {
+                $pushService->sendPushBatch($notifications);
+            }
+
 
             return response()->json([
                 'success' => true,
@@ -460,6 +475,7 @@ class CommandeController extends Controller
             $notification_client->role = 'client';
             $notification_client->id_user = $client->id;
             $notification_client->save();
+            app(PushNotifController::class)->sendPush($notification_client);
 
             $notification_marchand = new Notification();
             $notification_marchand->type = 'Commande';
@@ -468,6 +484,8 @@ class CommandeController extends Controller
             $notification_marchand->role = 'marchand';
             $notification_marchand->id_user = $marchand->id;
             $notification_marchand->save();
+            app(PushNotifController::class)->sendPush($notification_marchand);
+
 
             $alreadyCredited = Transaction::where('libelle', "Commande #{$codeCommande}")
                 ->where('id_user', $marchand->id)
