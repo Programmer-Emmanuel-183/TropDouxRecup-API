@@ -150,7 +150,7 @@ class CommandeController extends Controller
 
 
             $notification_client = new Notification();
-            $notification_client->type = 'Commande';
+            $notification_client->type = 'commande';
             $notification_client->title = 'Commande effectuée 🎉';
             $notification_client->body = "Votre commande a été envoyée avec succès.";
             $notification_client->role = 'client';
@@ -166,7 +166,7 @@ class CommandeController extends Controller
                 $nbPlats = collect($commandes)->sum('quantite_plat');
 
                 $notification = Notification::create([
-                    'type' => 'Commande',
+                    'type' => 'commande',
                     'title' => 'Nouvelle commande 📦',
                     'body' => "Vous avez reçu une nouvelle commande de {$client->nom_client} ({$nbPlats} plat(s)).",
                     'role' => 'marchand',
@@ -469,7 +469,7 @@ class CommandeController extends Controller
             }
 
             $notification_client = new Notification();
-            $notification_client->type = 'Commande';
+            $notification_client->type = 'commande';
             $notification_client->title = 'Votre commande a été récupérée avec succès 🎉';
             $notification_client->body =  "Votre commande #{$codeCommande} a bien été récupérée chez {$marchand->nom_marchand}. Merci pour votre confiance 🙏";
             $notification_client->role = 'client';
@@ -478,7 +478,7 @@ class CommandeController extends Controller
             app(PushNotifController::class)->sendPush($notification_client);
 
             $notification_marchand = new Notification();
-            $notification_marchand->type = 'Commande';
+            $notification_marchand->type = 'commande';
             $notification_marchand->title = "Commande #{$codeCommande} récupérée avec succès ✅";
             $notification_marchand->body = "Le client {$client->nom_client} a récupéré sa commande avec succès.";
             $notification_marchand->role = 'marchand';

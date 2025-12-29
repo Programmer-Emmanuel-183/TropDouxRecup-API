@@ -83,7 +83,7 @@ class NotificationController extends Controller
             }
 
             $notification = new Notification();
-            $notification->type = 'Promotion'; 
+            $notification->type = 'promotion'; 
             $notification->title = $request->title;
             $notification->body = $request->body;
             $notification->role = 'client';
@@ -128,7 +128,7 @@ class NotificationController extends Controller
             }
 
             $notification = new Notification();
-            $notification->type = 'Promotion'; 
+            $notification->type = 'promotion'; 
             $notification->title = $request->title;
             $notification->body = $request->body;
             $notification->role = 'marchand';
@@ -176,7 +176,7 @@ class NotificationController extends Controller
             $notifications = [];
             foreach ($clients as $client) {
                 $notifications[] = Notification::create([
-                    'type' => 'Promotion',
+                    'type' => 'promotion',
                     'title' => $request->title,
                     'body' => $request->body,
                     'role' => 'client',
@@ -225,7 +225,7 @@ class NotificationController extends Controller
             $notifications = [];
             foreach ($marchands as $marchand) {
                 $notifications[] = Notification::create([
-                    'type' => 'Promotion',
+                    'type' => 'promotion',
                     'title' => $request->title,
                     'body' => $request->body,
                     'role' => 'marchand',
@@ -275,7 +275,7 @@ class NotificationController extends Controller
             $notif_clients = [];
             foreach ($clients as $client) {
                 $notif_clients[] = Notification::create([
-                    'type' => 'Promotion',
+                    'type' => 'promotion',
                     'title' => $request->title,
                     'body' => $request->body,
                     'role' => 'client',
@@ -287,7 +287,7 @@ class NotificationController extends Controller
             $notif_marchands = [];
             foreach ($marchands as $marchand) {
                 $notif_marchands[] = Notification::create([
-                    'type' => 'Promotion',
+                    'type' => 'promotion',
                     'title' => $request->title,
                     'body' => $request->body,
                     'role' => 'marchand',
@@ -345,7 +345,7 @@ class NotificationController extends Controller
 
             foreach ($clients as $client) {
                 $notifications[] = Notification::create([
-                    'type' => 'Promotion',
+                    'type' => 'promotion',
                     'title' => $request->title,
                     'body' => $request->body,
                     'role' => 'client',
@@ -405,7 +405,7 @@ class NotificationController extends Controller
 
             foreach ($marchands as $marchand) {
                 $notifications[] = Notification::create([
-                    'type' => 'Promotion',
+                    'type' => 'promotion',
                     'title' => $request->title,
                     'body' => $request->body,
                     'role' => 'marchand',
