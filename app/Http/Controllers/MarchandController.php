@@ -7,6 +7,7 @@ use App\Models\Plat;
 use App\Models\SousCommande;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class MarchandController extends Controller
 {
@@ -221,5 +222,71 @@ class MarchandController extends Controller
         }
     }
 
+    public function modifier_adresse_marchand(Request $request){
+        $validator = Validator::make($request->all(), [
+            'adresse' => 'required'
+        ]);
 
+        if($validator->fails()){
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first()
+            ],422);
+        }
+        try{
+            $user = $request->user();
+            $marchand = Marchand::find($user->id);
+
+            if(!$marchand){
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Marchand non trouvé' 
+                ],404);
+            }
+
+            $marchand->adresse_marchand = $request->adresse;
+            $marchand->save();
+
+            return response()->json([
+                'success' => true,
+                'data' => $marchand->adresse_marchand,
+                'message' => 'Adresse du marchand mis à jour avec sucès'
+            ],200);
+        }
+        catch(QueryException $e){
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la modification de l’adresse du marchand',
+                'erreur' => $e->getMessage()
+            ],500);
+        }
+    }
+
+    public function adresse_marchand(Request $request){
+        try{
+            $user = $request->user();
+            $marchand = Marchand::find($user->id);
+
+            if(!$marchand){
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Marchand non trouvé' 
+                ],404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $marchand->adresse_marchand,
+                'message' => 'Marchand affiché'
+            ],200);
+            
+        }
+        catch(QueryException $e){
+            return response()->json([
+                'success' => true,
+                'message' => 'Erreur lors de l’affichage de l’adresse du marchand',
+                'erreur' => $e->getMessage()
+            ],500);
+        }
+    }
 }

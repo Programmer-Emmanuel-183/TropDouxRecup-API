@@ -220,3 +220,8 @@ Route::middleware('auth:sanctum')->group(function(){
     //Suppression de compte utilisateur
     Route::post('/suppression/compte', [AuthController::class, 'supprimer_compte']);
 });
+
+Route::middleware('auth:marchand')->group(function(){
+    Route::post('/update/adresse/marchand', [MarchandController::class, 'modifier_adresse_marchand']);
+    Route::get('/adresse/marchand', [MarchandController::class, 'adresse_marchand']);
+});
