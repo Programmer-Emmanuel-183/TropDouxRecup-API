@@ -1129,6 +1129,94 @@ class AuthController extends Controller
     }
 
 
+    public function deconnexion(Request $request){
+        try{
+            $user = $request->user();
+            $marchand = Marchand::find($user->id);
+            $client = User::find($user->id);
+
+            if($marchand){
+                $marchand->device_token = null;
+                $marchand->save();
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Marchand deconnecté avec succès'
+                ],200);
+            }
+
+            if($client){
+                $client->device_token = null;
+                $client->save();
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Client deconnecté avec succès'
+                ],200);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Utilisateur non trouvé'
+            ],404);
+        }
+        catch(QueryException $e){
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la deconnexion de l’utilisateur',
+                'erreur' => $e->getMessage()
+            ],500);
+        }
+    }
+
+    public function supprimer_compte(Request $request){
+        $validator = Validator::make($request->all(), [
+            'password' => 'required'
+        ]);
+
+        if($validator->fails()){
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first()
+            ],422);
+        }
+
+        try{
+            $user = $request->user();
+            $marchand = Marchand::find($user->id);
+            $client = User::find($user->id);
+
+            if($marchand && Hash::check($request->password, $marchand->password_marchand)){
+                $marchand->delete();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Compte marchand supprimé avec succès'
+                ],200);
+            }
+
+            if($client && Hash::check($request->password, $client->password_client)){
+                $client->delete();
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Compte client supprimé avec succès'
+                ],200);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Utilisateur non trouvé'
+            ],404);
+        }
+        catch(QueryException $e){
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors la suppression du compte de l’utilisateur',
+                'erreur' => $e->getMessage()
+            ],500);
+        }
+    }
+
+
 
     private function uploadImageToHosting($image){
         $apiKey = '9b1ab6564d99aab6418ad53d3451850b';

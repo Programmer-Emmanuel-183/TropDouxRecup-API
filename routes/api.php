@@ -212,3 +212,11 @@ Route::get('/historiques/facturation/marchand',[FacturationController::class, 'h
 Route::post('/demande/reinitialisation/password', [AuthController::class, 'demande_reset_password']);
 Route::post('/verification/token/password', [AuthController::class, 'verify_otp_password']);
 Route::post('/reinitialisation/password', [AuthController::class, 'nouveau_password']);
+
+
+Route::middleware('auth:sanctum')->group(function(){
+    //Deconnexion utilisateur
+    Route::post('/deconnexion', [AuthController::class, 'deconnexion']);
+    //Suppression de compte utilisateur
+    Route::post('/suppression/compte', [AuthController::class, 'supprimer_compte']);
+});
