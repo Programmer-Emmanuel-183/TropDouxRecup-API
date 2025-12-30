@@ -50,6 +50,13 @@ class PlatController extends Controller
                 ],404);
             }
 
+            if($user->adresse_marchand === null){
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Veuillez entrer une adresse valable dans les paramètres avant d’ajouter un plat.'
+                ],400);
+            }
+
             $image = $this->uploadImageToHosting($request->file('image_couverture'));
             $autre_image_urls = [];
             if ($request->has('autre_image')) {

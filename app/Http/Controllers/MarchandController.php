@@ -139,7 +139,13 @@ class MarchandController extends Controller
         try{
             $total_commande = SousCommande::where('id_marchand', $marchand->id)->count();
             $commande_attente = SousCommande::where('id_marchand', $marchand->id)->where('statut', 'pending')->count();
-            $today_vente = SousCommande::where('id_marchand', $marchand->id)->whereDate('date_de_recuperation', today())->count();
+            $today_vente = SousCommande::with('plat')
+                ->where('id_marchand', $marchand->id)
+                ->whereDate('date_de_recuperation', today())
+                ->get()
+                ->sum(function ($item) {
+                    return $item->plat->prix_reduit ?? 0;
+                });
             $plat_disponible = Plat::where('id_marchand', $marchand->id)->where('quantite_disponible', '>', 0)->count();
 
             return response()->json([
@@ -224,9 +230,16 @@ class MarchandController extends Controller
 
     public function modifier_adresse_marchand(Request $request){
         $validator = Validator::make($request->all(), [
-            'adresse' => 'required'
+            'adresse' => [
+                'required',
+                'url',
+                'regex:/^(https?:\/\/)?(www\.)?(google\.com\/maps|maps\.google\.com|goo\.gl\/maps|maps\.app\.goo\.gl)\/.+$/'
+            ]
+        ], [
+            'adresse.required' => 'L’adresse est obligatoire',
+            'adresse.url' => 'L’adresse doit être un lien valide',
+            'adresse.regex' => 'L’adresse doit être un lien Google Maps valide'
         ]);
-
         if($validator->fails()){
             return response()->json([
                 'success' => false,
@@ -279,7 +292,7 @@ class MarchandController extends Controller
                 'data' => $marchand->adresse_marchand,
                 'message' => 'Marchand affiché'
             ],200);
-            
+
         }
         catch(QueryException $e){
             return response()->json([
