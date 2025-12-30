@@ -3,6 +3,7 @@
 use App\Http\Controllers\AbonnementController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AnalytiqueController;
+use App\Http\Controllers\AssistanceController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AvantageController;
 use App\Http\Controllers\CategorieController;
@@ -225,3 +226,13 @@ Route::middleware('auth:marchand')->group(function(){
     Route::post('/update/adresse/marchand', [MarchandController::class, 'modifier_adresse_marchand']);
     Route::get('/adresse/marchand', [MarchandController::class, 'adresse_marchand']);
 });
+
+
+//Assistance
+Route::middleware('auth:admin')->group(function(){
+   Route::post('/ajout/assistance', [AssistanceController::class, 'ajout_assistance']); 
+   Route::post('/update/assistance/{id}', [AssistanceController::class, 'update_assistance']); 
+   Route::post('/delete/assistance/{id}', [AssistanceController::class, 'delete_assistance']); 
+});
+Route::get('/assistances', [AssistanceController::class, 'assistances']); 
+Route::get('/assistance/{id}', [AssistanceController::class, 'assistance']); 
