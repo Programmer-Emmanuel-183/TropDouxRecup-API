@@ -82,6 +82,13 @@ class NotificationController extends Controller
                 ], 404);
             }
 
+            if($client->device_token === null){
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Device token non trouvé'
+                ],404);
+            }
+
             $notification = new Notification();
             $notification->type = 'promotion'; 
             $notification->title = $request->title;
@@ -125,6 +132,13 @@ class NotificationController extends Controller
                     'success' => false,
                     'message' => 'Client introuvable'
                 ], 404);
+            }
+
+            if($marchand->device_token === null){
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Device token non trouvé'
+                ],404);
             }
 
             $notification = new Notification();
