@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Mail\OtpMail;
 use App\Mail\ResetPasswordMarchandMail;
 use App\Models\Abonnement;
+use App\Models\ActivationCompte;
 use App\Models\Admin;
 use App\Models\Facturation;
 use App\Models\Marchand;
@@ -181,8 +182,6 @@ class AuthController extends Controller
                 hash_equals($marchand->code_otp, $request->code_otp) &&
                 Carbon::parse($marchand->otp_expire_at)->isFuture()
             ) {
-
-                $token = $marchand->createToken('MarchandToken')->plainTextToken;
                 $abonnement = Abonnement::where('type_abonnement', 'debutant')->first();
                 $marchand->update([
                     'is_verify' => true,
@@ -190,6 +189,16 @@ class AuthController extends Controller
                     'otp_expire_at' => null,
                     'id_abonnement' => $abonnement->id
                 ]);
+                $activation = ActivationCompte::first();
+                $message = "Un administrateur validera votre inscription.";
+                $token = "";
+                if($activation->activate == true){
+                    $marchand->is_activate = true;
+                    $marchand->save();
+                    $message = "";
+                    $token = $marchand->createToken('MarchandToken')->plainTextToken;
+                }
+                
 
                 $facturation = new Facturation();
                 $facturation->nom_abonnement = 'debutant';
@@ -199,7 +208,7 @@ class AuthController extends Controller
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Vérification réussie',
+                    'message' => "Vérification du mail réussie. $message",
                     'data' => [
                         'id' => $marchand->id,
                         'nom_marchand' => $marchand->nom_marchand,
@@ -209,6 +218,7 @@ class AuthController extends Controller
                         'abonnement' => $abonnement->type_abonnement,
                         'image_profil' => $marchand->image_marchand,
                         'device_token' => $marchand->device_token,
+                        'is_active' => $marchand->is_active,
                         'token' => $token
                     ],
                 ], 200);
@@ -295,6 +305,20 @@ class AuthController extends Controller
         try {
             $marchand = Marchand::where('email_marchand', $request->email)->first();
             if ($marchand && Hash::check($request->password, $marchand->password_marchand)) {
+                if (!$marchand->is_active) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Votre compte est desactivé'
+                    ], 403);
+                }
+
+                if (!$marchand->is_verify) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Votre compte n’a pas encore été vérifié'
+                    ], 403);
+                }
+
                 $token = $marchand->createToken('MarchandToken')->plainTextToken;
                 $marchand->load('abonnement');
                 return response()->json([
@@ -308,6 +332,7 @@ class AuthController extends Controller
                         'role' => 'marchand',
                         'type_abonnement' => $marchand->abonnement->type_abonnement,
                         'device_token' => $marchand->device_token,
+                        'is_active' => $marchand->is_active,
                         'token' => $token
                     ],
                     'message' => 'Connexion réussie'

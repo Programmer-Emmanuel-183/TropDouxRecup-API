@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AbonnementController;
+use App\Http\Controllers\ActivationCompteController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AnalytiqueController;
 use App\Http\Controllers\AssistanceController;
@@ -236,3 +237,12 @@ Route::middleware('auth:admin')->group(function(){
 });
 Route::get('/assistances', [AssistanceController::class, 'assistances']); 
 Route::get('/assistance/{id}', [AssistanceController::class, 'assistance']); 
+
+
+//Activation de compte
+Route::middleware('auth:admin')->group(function(){
+    Route::get('/choix/activation', [ActivationCompteController::class, 'choix_activation']);
+    Route::post('/update/choix', [ActivationCompteController::class, 'update_choix']);
+    Route::post('/valider/compte/{id_marchand}', [ActivationCompteController::class, 'valider_compte']);
+    Route::post('/desactiver/compte/{id_marchand}', [ActivationCompteController::class, 'desactiver_compte']);
+});

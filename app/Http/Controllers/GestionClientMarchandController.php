@@ -132,6 +132,7 @@ class GestionClientMarchandController extends Controller
                     'device_token' => $marchand->device_token,
                     'localite' => $marchand->commune->localite,
                     'abonnement' => $marchand->abonnement->type_abonnement,
+                    'is_active' => $marchand->is_active,
                     'created_at' => $marchand->created_at
                 ];
             });
@@ -172,6 +173,7 @@ class GestionClientMarchandController extends Controller
                     'device_token' => $marchand->device_token,
                     'localite' => $marchand->commune->localite,
                     'abonnement' => $marchand->abonnement->type_abonnement,
+                    'is_active' => $marchand->is_active,
                     'created_at' => $marchand->created_at
                 ],
                 'message' => 'Marchand affiché avec succès'

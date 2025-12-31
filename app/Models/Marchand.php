@@ -22,6 +22,7 @@ class Marchand extends Authenticatable
         'code_otp',
         'otp_expire_at',
         'is_verify',
+        'is_activate',
         'image_marchand',
         'id_abonnement',
         'date_abonnement',
