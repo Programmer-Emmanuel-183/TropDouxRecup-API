@@ -647,6 +647,8 @@ class CommandeController extends Controller
                         $marchands[$marchand->id] = [
                             'id' => $marchand->id,
                             'nom' => $marchand->nom_marchand,
+                            'image_profil' => $marchand->image_marchand,
+                            'localite' => $marchand->commune->localite,
                             'telephone' => $marchand->tel_marchand ?? '',
                             'total_marchand' => 0
                         ];
@@ -682,7 +684,6 @@ class CommandeController extends Controller
                     'client' => [
                         'id' => $client->id,
                         'nom' => $client->nom_client,
-                        'prenom' => $client->prenom_client ?? '',
                         'telephone' => $client->tel_client ?? ''
                     ],
                     'marchands' => array_values($marchands),
