@@ -11,6 +11,8 @@ class CheckMarchandActive
         $marchand = $request->user();
 
         if ($marchand && !$marchand->is_active) {
+            $marchand->device_token = null;
+            $marchand->save();
             return response()->json([
                 'success' => false,
                 'message' => 'Votre compte est désactivé'
