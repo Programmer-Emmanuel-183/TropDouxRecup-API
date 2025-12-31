@@ -309,14 +309,14 @@ class AuthController extends Controller
                     return response()->json([
                         'success' => false,
                         'message' => 'Votre compte est desactivé'
-                    ], 403);
+                    ], 401);
                 }
 
                 if (!$marchand->is_verify) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Votre compte n’a pas encore été vérifié'
-                    ], 403);
+                    ], 401);
                 }
 
                 $token = $marchand->createToken('MarchandToken')->plainTextToken;
@@ -398,6 +398,7 @@ class AuthController extends Controller
                         'libelle' => $marchand->commune->localite,
                     ] : null,
                     'device_token' => $marchand->device_token,
+                    'is_active' => $marchand->is_active
                 ],
                 'message' => 'Information du profil affichée avec succès'
             ],200);

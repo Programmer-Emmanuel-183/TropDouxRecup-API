@@ -33,7 +33,7 @@ Route::post('/resend/otp', [AuthController::class, 'resend_otp']);
 Route::post('/login', [AuthController::class, 'login']);
 
 
-Route::middleware('auth:marchand')->group(function(){
+Route::middleware(['auth:marchand', 'marchand.active'])->group(function(){
     //Route pour afficher les infos du marchand
     Route::get('/info/profil/marchand', [AuthController::class, 'info_profil_marchand']);
     //Route pour modifier les infos du marchand
@@ -83,7 +83,7 @@ Route::get('/categories', [CategorieController::class, 'liste_categorie']);
 Route::get('/categorie/{id}', [CategorieController::class, 'categorie']);
 
 //Plat
-Route::middleware('auth:marchand')->group(function(){
+Route::middleware(['auth:marchand', 'marchand.active'])->group(function(){
     Route::post('/ajout/plat', [PlatController::class, 'ajout_plat']);
     Route::post('/dupliquer/plat/{id}', [PlatController::class, 'duplicate_plat']);
     Route::get('/plat/marchand', [PlatController::class, 'plat_marchand']);
@@ -134,7 +134,7 @@ Route::middleware('auth:client')->group(function(){
     Route::get('/commandes/client', [CommandeController::class, 'commandes_client']);
 });
 //Commandes du marchand
-Route::middleware('auth:marchand')->group(function(){
+Route::middleware(['auth:marchand', 'marchand.active'])->group(function(){
     Route::get('/commandes/marchand', [CommandeController::class, 'commandes_marchand']);
     Route::get('/marquer/recuperer', [CommandeController::class, 'marquer_comme_recupere']);
     Route::get('/commande/{code_commande}', [CommandeController::class, 'sous_commandes_par_code']);
@@ -160,7 +160,7 @@ Route::middleware('auth:admin')->group(function(){
 });
 
 //Analytique marchand
-Route::get('/analytique', [AnalytiqueController::class, 'analytique_marchand'])->middleware('auth:marchand');
+Route::get('/analytique', [AnalytiqueController::class, 'analytique_marchand'])->middleware(['auth:marchand', 'marchand.active']);
 
 //Gestion de sous administrateur
 Route::middleware('auth:admin')->group(function(){
@@ -174,10 +174,10 @@ Route::middleware('auth:admin')->group(function(){
 Route::get('/commandes', [CommandeController::class, 'liste_commandes'])->middleware('auth:admin');
 
 //Info du solde du marchand
-Route::get('/info/solde/marchand', [MarchandController::class, 'info_solde'])->middleware('auth:marchand');
+Route::get('/info/solde/marchand', [MarchandController::class, 'info_solde'])->middleware(['auth:marchand', 'marchand.active']);
 
 //Afficher le forfait actif du marchand
-Route::get('/forfait/actif/marchand', [MarchandController::class, 'forfait_actif'])->middleware('auth:marchand');
+Route::get('/forfait/actif/marchand', [MarchandController::class, 'forfait_actif'])->middleware(['auth:marchand', 'marchand.active']);
 
 //Modification du profil et password de l’admin
 Route::middleware('auth:admin')->group(function(){
@@ -200,15 +200,15 @@ Route::middleware('auth:admin')->group(function(){
 });
 Route::get('/notifications/client', [NotificationController::class, 'notif_client'])->middleware('auth:client');
 Route::post('/notifications/client/a-lue', [NotificationController::class, 'notif_client_lue'])->middleware('auth:client');
-Route::get('/notifications/marchand', [NotificationController::class, 'notif_marchand'])->middleware('auth:marchand');
-Route::post('/notifications/marchand/a-lue', [NotificationController::class, 'notif_marchand_lue'])->middleware('auth:marchand');
+Route::get('/notifications/marchand', [NotificationController::class, 'notif_marchand'])->middleware(['auth:marchand', 'marchand.active']);
+Route::post('/notifications/marchand/a-lue', [NotificationController::class, 'notif_marchand_lue'])->middleware(['auth:marchand', 'marchand.active']);
 Route::get('/nombre/notification/non/lues', [NotificationController::class, 'nombre_notif_non_lue'])->middleware('auth:sanctum');
 
 //Transactions
-Route::get('/historiques/transaction/marchand', [TransactionController::class, 'historiques_marchand'])->middleware('auth:marchand');
+Route::get('/historiques/transaction/marchand', [TransactionController::class, 'historiques_marchand'])->middleware(['auth:marchand', 'marchand.active']);
 
 //Facturations
-Route::get('/historiques/facturation/marchand',[FacturationController::class, 'historiques_facturation'])->middleware('auth:marchand');
+Route::get('/historiques/facturation/marchand',[FacturationController::class, 'historiques_facturation'])->middleware(['auth:marchand', 'marchand.active']);
 
 //Mot de passe oublié
 Route::post('/demande/reinitialisation/password', [AuthController::class, 'demande_reset_password']);
@@ -223,7 +223,7 @@ Route::middleware('auth:sanctum')->group(function(){
     Route::post('/suppression/compte', [AuthController::class, 'supprimer_compte']);
 });
 
-Route::middleware('auth:marchand')->group(function(){
+Route::middleware(['auth:marchand', 'marchand.active'])->group(function(){
     Route::post('/update/adresse/marchand', [MarchandController::class, 'modifier_adresse_marchand']);
     Route::get('/adresse/marchand', [MarchandController::class, 'adresse_marchand']);
 });

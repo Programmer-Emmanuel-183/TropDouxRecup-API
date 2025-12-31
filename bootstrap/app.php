@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\CheckMarchandActive;
 use App\Http\Middleware\CustomVerifyCsrfToken;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -18,6 +19,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'api/*'
         ]);
 
+        $middleware->alias([
+            'marchand.active' => CheckMarchandActive::class,
+        ]);
+
         // Retourne un tableau contenant ton middleware personnalisé
         return [
             CustomVerifyCsrfToken::class,
@@ -26,7 +31,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->appendToGroup('api', [
             EnsureFrontendRequestsAreStateful::class,
-            // autres middlewares si besoin
+            CheckMarchandActive::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
