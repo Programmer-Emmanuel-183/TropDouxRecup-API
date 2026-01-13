@@ -131,7 +131,7 @@ class ActivationCompteController extends Controller
             if($marchand->is_active == false){
                 return response()->json([
                     'success' => false,
-                    'message' => 'Ce compte marchand a déjà été descativé.'
+                    'message' => 'Ce compte marchand a déjà été desactivé.'
                 ],400);
             }
 

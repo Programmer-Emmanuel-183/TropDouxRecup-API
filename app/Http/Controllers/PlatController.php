@@ -14,103 +14,85 @@ use function Symfony\Component\Clock\now;
 class PlatController extends Controller
 {
     public function ajout_plat(Request $request){
-        $validator = Validator::make($request->all(),[
+        $validator = Validator::make($request->all(), [
             'nom_plat' => 'required',
             'description_plat' => 'required',
             'image_couverture' => 'required|image|mimes:jpeg,png,jpg|max:2048',
-            'autre_image' => 'nullable|array',
-            'autre_image.*' => 'image|mimes:jpeg,png,jpg|max:2048',
-            'prix_origine' => 'required',
-            'prix_reduit' => 'required|lt:prix_origine',
-            'quantite_plat' => 'required|min:1',
+            'autre_image' => 'nullable|array|max:3',
+            'autre_image.*' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'prix_origine' => 'required|numeric|min:1',
+            'prix_reduit' => 'required|numeric|lt:prix_origine|min:0',
+            'quantite_plat' => 'required|integer|min:1',
             'is_active' => 'nullable|boolean',
             'id_categorie' => 'required',
         ]);
-        if($validator->fails()){
+
+        if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => $validator->errors()->first()
-            ],422);
+            ], 422);
         }
 
-        try{
+        try {
             $categorie = Categorie::find($request->id_categorie);
-            if(!$categorie){
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Categorie non trouvé'
-                ],404);
+            if (!$categorie) {
+                return response()->json(['success' => false, 'message' => 'Categorie non trouvée'], 404);
             }
 
             $user = $request->user();
-            if(!$user){
+            if (!$user || $user->adresse_marchand === null) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Marchand non trouvé'
-                ],404);
+                    'message' => 'Veuillez renseigner une adresse marchand valide.'
+                ], 400);
             }
 
-            if($user->adresse_marchand === null){
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Veuillez entrer une adresse valable dans les paramètres avant d’ajouter un plat.'
-                ],400);
-            }
+            $imageCouverture = $this->uploadImageToHosting($request->file('image_couverture'));
 
-            $image = $this->uploadImageToHosting($request->file('image_couverture'));
-            $autre_image_urls = [];
-            if ($request->has('autre_image')) {
-                foreach ($request->file('autre_image') as $img) {
-                    $uploaded = $this->uploadImageToHosting($img);
-                    $autre_image_urls[] = $uploaded;
+            /**
+             * 🔥 autre_image → on ne stocke QUE les images réelles
+             */
+            $autreImages = [];
+
+            if ($request->hasFile('autre_image')) {
+                foreach ($request->file('autre_image') as $file) {
+                    if ($file && $file->isValid()) {
+                        $autreImages[] = $this->uploadImageToHosting($file);
+                    }
                 }
             }
 
-            $plat = new Plat();
-            $plat->nom_plat = $request->nom_plat;
-            $plat->description_plat = $request->description_plat;
-            $plat->image_couverture = $image;
-            $plat->autre_image = $autre_image_urls;
-            $plat->prix_origine = $request->prix_origine;
-            $plat->prix_reduit = $request->prix_reduit;
-            $plat->quantite_plat = $request->quantite_plat;
-            $plat->quantite_disponible = $request->quantite_plat;
-            $plat->is_active = $request->is_active ?? true;
-            $plat->id_categorie = $categorie->id;
-            $plat->id_marchand = $user->id;
-            $plat->save();
+            $plat = Plat::create([
+                'nom_plat' => $request->nom_plat,
+                'description_plat' => $request->description_plat,
+                'image_couverture' => $imageCouverture,
+                'autre_image' => !empty($autreImages) ? $autreImages : null,
+                'prix_origine' => $request->prix_origine,
+                'prix_reduit' => $request->prix_reduit,
+                'quantite_plat' => $request->quantite_plat,
+                'quantite_disponible' => $request->quantite_plat,
+                'is_active' => $request->is_active ?? true,
+                'id_categorie' => $categorie->id,
+                'id_marchand' => $user->id,
+            ]);
 
             return response()->json([
                 'success' => true,
-                'data' => [
-                    'id' => $plat->id,
-                    'nom_plat' => $plat->nom_plat,
-                    'description_plat' => $plat->description_plat,
-                    'image_couverture' => $plat->image_couverture,
-                    'autre_image' => $plat->autre_image,
-                    'prix_origine' => $plat->prix_origine,
-                    'prix_reduit' => $plat->prix_reduit,
-                    'quantite_plat' => $plat->quantite_plat,
-                    'quantite_disponible' => $plat->quantite_disponible,
-                    'is_active' => $plat->is_active,
-                    // 'is_finish' => $plat->is_finish,
-                    'categorie' => [
-                        'nom_categorie' => $categorie->nom_categorie,
-                        'image_categorie' => $categorie->image_categorie
-                    ],
-                    'marchand' => $user->nom_marchand
-                ],
+                'data' => $plat,
                 'message' => 'Plat ajouté avec succès.'
-            ],200);
-        }
-        catch(QueryException $e){
+            ], 200);
+
+        } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de l’ajout du plat',
                 'erreur' => $e->getMessage()
-            ],500);
+            ], 500);
         }
     }
+
+
 
     public function plat_marchand(Request $request){
         try {
@@ -389,17 +371,14 @@ class PlatController extends Controller
 
     public function update_plat(Request $request, $id){
         /**
-         * 🔥 NETTOYAGE autre_image AVANT VALIDATION
-         * - "null" (string) → null réel
+         * 🔥 Nettoyage "null" string → null réel
          */
         if ($request->has('autre_image')) {
-            $cleanImages = collect((array) $request->autre_image)
-                ->map(fn ($item) => $item === 'null' ? null : $item)
+            $clean = collect((array) $request->autre_image)
+                ->map(fn ($v) => $v === 'null' ? null : $v)
                 ->toArray();
 
-            $request->merge([
-                'autre_image' => $cleanImages
-            ]);
+            $request->merge(['autre_image' => $clean]);
         }
 
         // ✅ VALIDATION
@@ -407,7 +386,7 @@ class PlatController extends Controller
             'nom_plat' => 'required',
             'description_plat' => 'required',
             'image_couverture' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
-            'autre_image' => 'sometimes|array',
+            'autre_image' => 'sometimes|array|max:3',
             'autre_image.*' => 'nullable',
             'prix_origine' => 'required|numeric|min:1',
             'prix_reduit' => 'required|numeric|lt:prix_origine|min:0',
@@ -427,40 +406,23 @@ class PlatController extends Controller
         if ($request->quantite_disponible > $request->quantite_plat) {
             return response()->json([
                 'success' => false,
-                'message' => 'La quantité disponible doit être inférieure ou égale à la quantité totale.'
+                'message' => 'La quantité disponible doit être ≤ à la quantité totale.'
             ], 400);
         }
 
         try {
-            // 🔎 Catégorie
-            $categorie = Categorie::find($request->id_categorie);
-            if (!$categorie) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Categorie non trouvée'
-                ], 404);
-            }
-
-            // 🔎 Marchand
-            $user = $request->user();
-            if (!$user) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Marchand non trouvé'
-                ], 404);
-            }
-
-            // 🔎 Plat
             $plat = Plat::find($id);
             if (!$plat) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Plat non trouvé'
-                ], 404);
+                return response()->json(['success' => false, 'message' => 'Plat non trouvé'], 404);
+            }
+
+            $categorie = Categorie::find($request->id_categorie);
+            if (!$categorie) {
+                return response()->json(['success' => false, 'message' => 'Categorie non trouvée'], 404);
             }
 
             /**
-             * 🖼 Image de couverture
+             * 🖼 Image couverture
              */
             $imageCouverture = $request->hasFile('image_couverture')
                 ? $this->uploadImageToHosting($request->file('image_couverture'))
@@ -482,45 +444,45 @@ class PlatController extends Controller
             ];
 
             /**
-             * 🔥 GESTION autre_image — LOGIQUE PAR INDEX EXACT
+             * 🔥 autre_image — PAR ORDRE, SANS INDEX
              */
             if ($request->has('autre_image')) {
 
-                // Images existantes (index conservés)
-                $existingImages = $plat->autre_image ?? [];
-                $resultImages   = $existingImages;
+                $existing = $plat->autre_image ?? [];
+                $final = [];
 
-                foreach ($request->autre_image as $index => $value) {
+                $position = 0;
 
-                    // ❌ null → supprimer l’image à CET index
+                foreach ($request->autre_image as $value) {
+
+                    // ❌ supprimer
                     if ($value === null) {
-                        unset($resultImages[$index]);
+                        $position++;
                         continue;
                     }
 
-                    // 🔁 same → garder l’image à CET index (rien à faire)
-                    if ($value === 'same') {
+                    // 🔁 garder l’existante à cette position
+                    if ($value === 'same' && isset($existing[$position])) {
+                        $final[] = $existing[$position];
+                        $position++;
                         continue;
                     }
 
-                    // 🖼 nouvelle image → remplacer / ajouter à CET index
-                    if ($request->hasFile("autre_image.$index")) {
-                        $file = $request->file("autre_image.$index");
+                    // 🖼 nouvelle image
+                    if ($request->hasFile("autre_image.$position")) {
+                        $file = $request->file("autre_image.$position");
                         if ($file && $file->isValid()) {
-                            $resultImages[$index] = $this->uploadImageToHosting($file);
+                            $final[] = $this->uploadImageToHosting($file);
                         }
                     }
+
+                    $position++;
                 }
 
-                // Nettoyage final (réindexation propre)
-                $data['autre_image'] = !empty($resultImages)
-                    ? array_values($resultImages)
-                    : null;
+                // ❌ pas de null en BDD
+                $data['autre_image'] = !empty($final) ? array_values($final) : null;
             }
 
-            /**
-             * 💾 UPDATE
-             */
             $plat->update($data);
 
             return response()->json([
@@ -532,11 +494,14 @@ class PlatController extends Controller
         } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de la modification du plat',
+                'message' => 'Erreur lors de la modification',
                 'erreur' => $e->getMessage()
             ], 500);
         }
     }
+
+
+
 
 
 
