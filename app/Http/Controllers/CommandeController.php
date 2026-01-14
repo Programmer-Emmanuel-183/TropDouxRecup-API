@@ -166,7 +166,8 @@ class CommandeController extends Controller
 
                 $marchand = $commandes[0]->plat->marchand;
                 $nbPlats = collect($commandes)->sum('quantite_plat');
-                if($marchand->device_token !== null){
+
+                if ($marchand->device_token !== null) {
                     $notification = Notification::create([
                         'type' => 'commande',
                         'title' => 'Nouvelle commande 📦',
@@ -174,10 +175,12 @@ class CommandeController extends Controller
                         'role' => 'marchand',
                         'id_user' => $marchand->id,
                     ]);
-                }
 
-                $notifications[] = $notification;
+                    // ✅ Seulement si elle existe
+                    $notifications[] = $notification;
+                }
             }
+
 
             // 🔥 ENVOI OPTIMISÉ
             $pushService = app(PushNotifController::class);
