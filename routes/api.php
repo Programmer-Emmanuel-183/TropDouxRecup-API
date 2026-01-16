@@ -7,6 +7,7 @@ use App\Http\Controllers\AnalytiqueController;
 use App\Http\Controllers\AssistanceController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AvantageController;
+use App\Http\Controllers\AvisController;
 use App\Http\Controllers\CategorieController;
 use App\Http\Controllers\CommandeController;
 use App\Http\Controllers\CommissionController;
@@ -246,3 +247,9 @@ Route::middleware('auth:admin')->group(function(){
     Route::post('/valider/compte/{id_marchand}', [ActivationCompteController::class, 'valider_compte']);
     Route::post('/desactiver/compte/{id_marchand}', [ActivationCompteController::class, 'desactiver_compte']);
 });
+
+//Avis 
+Route::post('/ajout/avis/{id_plat}', [AvisController::class, 'ajout_avis'])->middleware('auth:client');
+Route::post('/delete/avis/{id}', [AvisController::class, 'delete_avis'])->middleware('auth:admin');
+Route::get('/avis', [AvisController::class, 'avis'])->middleware('auth:admin');
+Route::get('/avis/marchand', [AvisController::class, 'avis_marchand'])->middleware('auth:marchand');

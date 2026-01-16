@@ -129,6 +129,7 @@ class AuthController extends Controller
                     'nom' => $client->nom_client,
                     'email' => $client->email_client,
                     'telephone' => $client->tel_client,
+                    'image_profil' => $client->image_client,
                     'password' => $client->password_client,
                     'token' => $token,
                     'role' => 'client',
@@ -349,6 +350,7 @@ class AuthController extends Controller
                         'nom' => $client->nom_client,
                         'email' => $client->email_client,
                         'telephone' => $client->tel_client,
+                        'image_profil' => $client->image_client,
                         'role' => 'client',
                         'device_token' => $client->device_token,
                         'token' => $token
