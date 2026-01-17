@@ -377,17 +377,20 @@ class PlatController extends Controller
          * 🔥 Nettoyage "null" string → null réel
          */
         if ($request->has('autre_image')) {
-            $clean = collect((array) $request->autre_image)
-                ->map(fn ($v) => $v === 'null' ? null : $v)
-                ->toArray();
+            $raw = $request->all()['autre_image'];
+            $clean = [];
+
+            foreach ($raw as $index => $item) {
+                $clean[$index] = $item === 'null' ? null : $item;
+            }
 
             $request->merge(['autre_image' => $clean]);
         }
 
         // ✅ VALIDATION
         $validator = Validator::make($request->all(), [
-            'nom_plat' => 'required',
-            'description_plat' => 'required',
+            'nom_plat' => 'required|string',
+            'description_plat' => 'required|string',
             'image_couverture' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'autre_image' => 'sometimes|array|max:3',
             'autre_image.*' => 'nullable',
@@ -396,7 +399,7 @@ class PlatController extends Controller
             'quantite_plat' => 'required|integer|min:1',
             'quantite_disponible' => 'required|integer|min:1',
             'is_active' => 'nullable|boolean',
-            'id_categorie' => 'required',
+            'id_categorie' => 'required|exists:categories,id',
         ]);
 
         if ($validator->fails()) {
@@ -416,12 +419,10 @@ class PlatController extends Controller
         try {
             $plat = Plat::find($id);
             if (!$plat) {
-                return response()->json(['success' => false, 'message' => 'Plat non trouvé'], 404);
-            }
-
-            $categorie = Categorie::find($request->id_categorie);
-            if (!$categorie) {
-                return response()->json(['success' => false, 'message' => 'Categorie non trouvée'], 404);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Plat non trouvé'
+                ], 404);
             }
 
             /**
@@ -443,47 +444,43 @@ class PlatController extends Controller
                 'quantite_plat' => $request->quantite_plat,
                 'quantite_disponible' => $request->quantite_disponible,
                 'is_active' => $request->is_active ?? $plat->is_active,
-                'id_categorie' => $categorie->id,
+                'id_categorie' => $request->id_categorie,
             ];
 
             /**
-             * 🔥 autre_image — PAR ORDRE, SANS INDEX
+             * 🔥 autre_image — INDEX PILOTÉ PAR LE FRONT
              */
             if ($request->has('autre_image')) {
 
                 $existing = $plat->autre_image ?? [];
-                $final = [];
+                $finalImages = [];
 
-                $position = 0;
+                foreach ($request->autre_image as $index => $item) {
 
-                foreach ($request->autre_image as $value) {
-
-                    // ❌ supprimer
-                    if ($value === null) {
-                        $position++;
-                        continue;
-                    }
-
-                    // 🔁 garder l’existante à cette position
-                    if ($value === 'same' && isset($existing[$position])) {
-                        $final[] = $existing[$position];
-                        $position++;
-                        continue;
-                    }
-
-                    // 🖼 nouvelle image
-                    if ($request->hasFile("autre_image.$position")) {
-                        $file = $request->file("autre_image.$position");
-                        if ($file && $file->isValid()) {
-                            $final[] = $this->uploadImageToHosting($file);
+                    // 🔁 GARDER L’EXISTANTE
+                    if ($item === 'same') {
+                        if (isset($existing[$index])) {
+                            $finalImages[$index] = $existing[$index];
                         }
+                        continue;
                     }
 
-                    $position++;
+                    // ❌ SUPPRIMER
+                    if ($item === null) {
+                        continue;
+                    }
+
+                    // 🖼 NOUVELLE IMAGE
+                    if ($item instanceof \Illuminate\Http\UploadedFile && $item->isValid()) {
+                        $finalImages[$index] = $this->uploadImageToHosting($item);
+                    }
                 }
 
-                // ❌ pas de null en BDD
-                $data['autre_image'] = !empty($final) ? array_values($final) : null;
+                // 🔒 Réindexation propre pour stockage JSON
+                ksort($finalImages);
+                $data['autre_image'] = count($finalImages)
+                    ? array_values($finalImages)
+                    : null;
             }
 
             $plat->update($data);
@@ -502,10 +499,6 @@ class PlatController extends Controller
             ], 500);
         }
     }
-
-
-
-
 
 
 
