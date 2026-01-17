@@ -50,7 +50,7 @@ class MarchandController extends Controller
 
             $plats_dispo = $plats->map(function ($plat) {
                 $pourcentage = $plat->prix_origine > 0 
-                    ? round((($plat->prix_origine - $plat->prix_reduit) / $plat->prix_origine) * 100, 2)
+                    ? round((($plat->prix_origine - $plat->prix_reduit) / $plat->prix_origine) * 100, 1)
                     : 0;
 
                 return [
@@ -63,6 +63,7 @@ class MarchandController extends Controller
                 ];
             });
 
+            $pourcentageMoyen = round($plats_dispo->avg('reduction_percent'), 2);
             return response()->json([
                 'success' => true,
                 'data' => [
@@ -70,7 +71,7 @@ class MarchandController extends Controller
                     'nom_marchand' => $marchand->nom_marchand,
                     'localite' => $marchand->commune->localite ?? null,
                     'plat_restant' => $plats->count(),
-                    'pourcentage' => $plats_dispo->avg('reduction_percent') . "%",
+                    'pourcentage' => $pourcentageMoyen . "%",
                     'etoile_marchand' => $moyenneMarchand,
                     // 'plats_dispo' => $plats_dispo
                 ],
@@ -85,6 +86,81 @@ class MarchandController extends Controller
             ], 500);
         }
     }
+
+    public function liste_marchand(Request $request){
+        try {
+            $marchands = Marchand::where('is_verify', true)
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            if ($marchands->isEmpty()) {
+                return response()->json([
+                    'success' => true,
+                    'data' => [],
+                    'message' => 'Aucun marchand trouvé'
+                ], 200);
+            }
+
+            $data = $marchands->map(function ($marchand) {
+
+                /**
+                 * ⭐ Moyenne des étoiles du marchand
+                 */
+                $moyenneMarchand = Avis::whereHas('plat.marchand', function ($query) use ($marchand) {
+                    $query->where('id', $marchand->id);
+                })->avg('etoile') ?? 0;
+
+                $moyenneMarchand = round($moyenneMarchand, 1);
+
+                /**
+                 * 📦 Plats actifs du marchand
+                 */
+                $plats = Plat::where('id_marchand', $marchand->id)
+                    ->where('is_active', true)
+                    ->get();
+
+                /**
+                 * 🔥 Pourcentage moyen de réduction
+                 */
+                $pourcentage = 0;
+
+                if ($plats->isNotEmpty()) {
+                    $pourcentage = $plats->map(function ($plat) {
+                        return $plat->prix_origine > 0
+                            ? (($plat->prix_origine - $plat->prix_reduit) / $plat->prix_origine) * 100
+                            : 0;
+                    })->avg();
+
+                    $pourcentage = round($pourcentage, 2);
+                }
+
+                return [
+                    'id' => $marchand->id,
+                    'nom' => $marchand->nom_marchand,
+                    'image' => $marchand->image_marchand,
+                    'localite' => $marchand->commune->localite ?? null,
+                    'etoile_marchand' => $moyenneMarchand,
+                    'pourcentage' => $pourcentage . '%',
+                    'is_favorite' => true,
+                    'created_at' => $marchand->created_at,
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $data,
+                'message' => 'Liste des marchands affichée avec succès'
+            ], 200);
+
+        } catch (QueryException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l’affichage de la liste des marchands',
+                'erreur' => $e->getMessage()
+            ], 500);
+        }
+    }
+
 
     public function plat_disponible($id){
         try{

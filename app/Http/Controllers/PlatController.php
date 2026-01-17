@@ -210,6 +210,7 @@ class PlatController extends Controller
                     'prix_reduit' => $plat->prix_reduit,
                     'quantite_plat' => $plat->quantite_plat,
                     'quantite_disponible' => $plat->quantite_disponible,
+                    'is_favorite' => true,
                     // 'is_active' => $plat->is_active,
                     // 'is_finish' => $plat->is_finish,
                     // 'categorie' => [

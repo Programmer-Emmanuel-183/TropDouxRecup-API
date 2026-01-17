@@ -160,6 +160,7 @@ Route::middleware('auth:admin')->group(function(){
     Route::get('/marchand/{id}', [GestionClientMarchandController::class, 'marchand']);
     Route::post('/delete/marchand/{id}', [GestionClientMarchandController::class, 'delete_marchand']);
 });
+Route::get('/get/marchands', [MarchandController::class, 'liste_marchand']);
 
 //Analytique marchand
 Route::get('/analytique', [AnalytiqueController::class, 'analytique_marchand'])->middleware(['auth:marchand', 'marchand.active']);
