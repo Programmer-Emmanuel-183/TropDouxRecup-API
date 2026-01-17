@@ -12,6 +12,7 @@ use App\Http\Controllers\CategorieController;
 use App\Http\Controllers\CommandeController;
 use App\Http\Controllers\CommissionController;
 use App\Http\Controllers\FacturationController;
+use App\Http\Controllers\FavorisController;
 use App\Http\Controllers\GestionClientMarchandController;
 use App\Http\Controllers\LocaliteController;
 use App\Http\Controllers\MarchandController;
@@ -265,3 +266,11 @@ Route::middleware('auth:admin')->group(function(){
     Route::post('/delete/publicite/{id}', [PubliciteController::class, 'delete_publicite']);
 });
 Route::get('/liste/publicites', [PubliciteController::class, 'liste_paginate_publicite']);
+
+//Favoris
+Route::middleware('auth:client')->group(function(){
+    Route::post('/ajout/plat/favoris', [FavorisController::class, 'ajout_plat_favoris']);
+    Route::post('/ajout/marchand/favoris', [FavorisController::class, 'ajout_marchand_favoris']);
+    Route::get('/plats/favoris', [FavorisController::class, 'plats_favoris']);
+    Route::get('/marchands/favoris', [FavorisController::class, 'marchands_favoris']);
+});

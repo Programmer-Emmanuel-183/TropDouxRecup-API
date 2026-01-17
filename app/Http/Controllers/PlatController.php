@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Avis;
 use App\Models\Categorie;
+use App\Models\FavorisPlat;
 use App\Models\Plat;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -177,16 +178,20 @@ class PlatController extends Controller
     }
 
 
-    public function plats(Request $request){
+        public function plats(Request $request){
         try {
+
+            $client = $request->user('client'); // null si pas connecté
+
             $begin = $request->query('begin');
             $end = $request->query('end');
 
             $query = Plat::with(['categorie', 'marchand'])
-                ->where('is_active', true)->whereNot('quantite_disponible', 0);
+                ->where('is_active', true)
+                ->where('quantite_disponible', '>', 0);
 
             if (!is_null($begin) && !is_null($end)) {
-                $query->whereBetween('prix_reduit', [(int)$begin, (int)$end]);
+                $query->whereBetween('prix_reduit', [(int) $begin, (int) $end]);
             }
 
             $plats = $query->get();
@@ -199,32 +204,36 @@ class PlatController extends Controller
                 ], 200);
             }
 
-            $data = $plats->map(function ($plat) {
+            $data = $plats->map(function ($plat) use ($client) {
+
+                /**
+                 * ❤️ Favoris plat
+                 */
+                $isFavorite = false;
+
+                if ($client) {
+                    $isFavorite = FavorisPlat::where('id_client', $client->id)
+                        ->where('id_plat', $plat->id)
+                        ->exists();
+                }
+
                 return [
                     'id' => $plat->id,
                     'nom_plat' => $plat->nom_plat,
-                    // 'description_plat' => $plat->description_plat,
                     'image_couverture' => $plat->image_couverture,
-                    // 'autre_image' => $plat->autre_image,
                     'prix_origine' => $plat->prix_origine,
                     'prix_reduit' => $plat->prix_reduit,
                     'quantite_plat' => $plat->quantite_plat,
                     'quantite_disponible' => $plat->quantite_disponible,
-                    'is_favorite' => true,
-                    // 'is_active' => $plat->is_active,
-                    // 'is_finish' => $plat->is_finish,
-                    // 'categorie' => [
-                        // 'nom_categorie' => $plat->categorie->nom_categorie ?? null,
-                        // 'image_categorie' => $plat->categorie->image_categorie ?? null
-                    // ],
-                    'marchand' => $plat->marchand->nom_marchand ?? null
+                    'is_favorite' => $isFavorite,
+                    'marchand' => $plat->marchand->nom_marchand ?? null,
                 ];
             });
 
             return response()->json([
                 'success' => true,
                 'data' => $data,
-                'message' => 'Liste des plats.'
+                'message' => 'Liste des plats'
             ], 200);
 
         } catch (QueryException $e) {
@@ -235,6 +244,7 @@ class PlatController extends Controller
             ], 500);
         }
     }
+
 
 
     public function plat(Request $request, $id){

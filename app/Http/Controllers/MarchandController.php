@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Avis;
+use App\Models\FavorisMarchand;
 use App\Models\Marchand;
 use App\Models\Plat;
 use App\Models\SousCommande;
@@ -87,8 +88,13 @@ class MarchandController extends Controller
         }
     }
 
+
     public function liste_marchand(Request $request){
         try {
+
+            // Client connecté ou non
+            $client = $request->user('client'); // null si pas de token
+
             $marchands = Marchand::where('is_verify', true)
                 ->orderBy('created_at', 'desc')
                 ->get();
@@ -101,10 +107,10 @@ class MarchandController extends Controller
                 ], 200);
             }
 
-            $data = $marchands->map(function ($marchand) {
+            $data = $marchands->map(function ($marchand) use ($client) {
 
                 /**
-                 * ⭐ Moyenne des étoiles du marchand
+                 * ⭐ Moyenne des étoiles
                  */
                 $moyenneMarchand = Avis::whereHas('plat.marchand', function ($query) use ($marchand) {
                     $query->where('id', $marchand->id);
@@ -113,7 +119,7 @@ class MarchandController extends Controller
                 $moyenneMarchand = round($moyenneMarchand, 1);
 
                 /**
-                 * 📦 Plats actifs du marchand
+                 * 📦 Plats actifs
                  */
                 $plats = Plat::where('id_marchand', $marchand->id)
                     ->where('is_active', true)
@@ -134,6 +140,17 @@ class MarchandController extends Controller
                     $pourcentage = round($pourcentage, 2);
                 }
 
+                /**
+                 * ❤️ Favoris (SEULEMENT si client connecté)
+                 */
+                $isFavorite = false;
+
+                if ($client) {
+                    $isFavorite = FavorisMarchand::where('id_client', $client->id)
+                        ->where('id_marchand', $marchand->id)
+                        ->exists();
+                }
+
                 return [
                     'id' => $marchand->id,
                     'nom' => $marchand->nom_marchand,
@@ -141,7 +158,7 @@ class MarchandController extends Controller
                     'localite' => $marchand->commune->localite ?? null,
                     'etoile_marchand' => $moyenneMarchand,
                     'pourcentage' => $pourcentage . '%',
-                    'is_favorite' => true,
+                    'is_favorite' => $isFavorite,
                     'created_at' => $marchand->created_at,
                 ];
             });
@@ -160,6 +177,7 @@ class MarchandController extends Controller
             ], 500);
         }
     }
+
 
 
     public function plat_disponible($id){
