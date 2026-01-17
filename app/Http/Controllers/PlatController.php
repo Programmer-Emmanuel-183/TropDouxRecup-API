@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Avis;
 use App\Models\Categorie;
 use App\Models\Plat;
 use Illuminate\Database\QueryException;
@@ -238,7 +239,8 @@ class PlatController extends Controller
     public function plat(Request $request, $id){
         try {
             $plat = Plat::find($id);
-
+            $avis = Avis::where('id_plat', $plat->id)->avg('etoile') ?? 0;
+            $moyenne = round($avis, 1);
             if (!$plat) {
                 return response()->json([
                     'success' => false,
@@ -276,6 +278,7 @@ class PlatController extends Controller
                         'nom_categorie' => $plat->categorie->nom_categorie,
                         'image_categorie' => $plat->categorie->image_categorie
                     ] : null,
+                    'etoile' => $moyenne,
                     // 'recommandation' => $recommandations
                 ]
             ], 200);

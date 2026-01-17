@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Avis;
 use App\Models\Marchand;
 use App\Models\Plat;
 use App\Models\SousCommande;
@@ -22,6 +23,11 @@ class MarchandController extends Controller
                 ], 404);
             }
 
+            $moyenneMarchand = Avis::whereHas('plat.marchand', function ($query) use ($marchand) {
+                $query->where('id', $marchand->id);
+            })->avg('etoile') ?? 0;
+            $moyenneMarchand = round($moyenneMarchand, 1);
+
             $plats = Plat::where('id_marchand', $id)
                 ->where('is_active', true)
                 ->get();
@@ -35,6 +41,7 @@ class MarchandController extends Controller
                         'localite' => $marchand->commune->localite ?? null,
                         'plat_restant' => 0,
                         'pourcentage' => 0,
+                        'etoile_marchand' => 0,
                         // 'plats_dispo' => []
                     ],
                     'message' => 'Aucun plat disponible'
@@ -64,6 +71,7 @@ class MarchandController extends Controller
                     'localite' => $marchand->commune->localite ?? null,
                     'plat_restant' => $plats->count(),
                     'pourcentage' => $plats_dispo->avg('reduction_percent') . "%",
+                    'etoile_marchand' => $moyenneMarchand,
                     // 'plats_dispo' => $plats_dispo
                 ],
                 'message' => 'Informations du marchand'

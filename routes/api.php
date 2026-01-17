@@ -18,6 +18,7 @@ use App\Http\Controllers\MarchandController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PanierController;
 use App\Http\Controllers\PlatController;
+use App\Http\Controllers\PubliciteController;
 use App\Http\Controllers\TransactionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -101,7 +102,7 @@ Route::get('/plat/{id}', [PlatController::class, 'plat']);
 Route::get('/plats/recommandes', [PlatController::class, 'plat_recommande']);
 
 //Afficher un marchand
-Route::get('/marchand/{id}', [MarchandController::class, 'marchand']);
+Route::get('/get/marchand/{id}', [MarchandController::class, 'marchand']);
 
 //Afficher les plats disponibles du marchand
 Route::get('/plat/diponibles/marchand/{id}', [MarchandController::class, 'plat_disponible']);
@@ -253,3 +254,13 @@ Route::post('/ajout/avis/{id_plat}', [AvisController::class, 'ajout_avis'])->mid
 Route::post('/delete/avis/{id}', [AvisController::class, 'delete_avis'])->middleware('auth:admin');
 Route::get('/avis', [AvisController::class, 'avis'])->middleware('auth:admin');
 Route::get('/avis/marchand', [AvisController::class, 'avis_marchand'])->middleware('auth:marchand');
+
+//Publicites
+Route::middleware('auth:admin')->group(function(){
+    Route::post('/ajout/publicite', [PubliciteController::class, 'ajout_publicite']);
+    Route::post('/update/publicite/{id}', [PubliciteController::class, 'update_publicite']);
+    Route::get('/publicites', [PubliciteController::class, 'publicites']);
+    Route::get('/publicite/{id}', [PubliciteController::class, 'publicite']);
+    Route::post('/delete/publicite/{id}', [PubliciteController::class, 'delete_publicite']);
+});
+Route::get('/liste/publicites', [PubliciteController::class, 'liste_paginate_publicite']);
