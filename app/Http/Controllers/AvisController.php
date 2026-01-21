@@ -237,4 +237,61 @@ class AvisController extends Controller
             ],500);
         }
     }
+
+
+    public function avis_page(Request $request){
+        try {
+            $avis = Avis::with(['plat.marchand', 'client'])
+                ->orderBy('etoile', 'desc')
+                ->limit(3)
+                ->get();
+
+
+            if ($avis->isEmpty()) {
+                return response()->json([
+                    'success' => true,
+                    'data' => [],
+                    'message' => 'Aucun avis trouvé.'
+                ], 200);
+            }
+
+            $data = $avis->map(function ($avi) {
+                return [
+                    'id' => $avi->id,
+                    'etoile' => (int) $avi->etoile,
+                    'commentaire' => $avi->commentaire,
+                    'plat' => $avi->plat ? [
+                        'id' => $avi->plat->id,
+                        'nom' => $avi->plat->nom_plat,
+                        'image_couverture' => $avi->plat->image_couverture,
+                    ] : null,
+                    'marchand' => $avi->plat && $avi->plat->marchand ? [
+                        'id' => $avi->plat->marchand->id,
+                        'nom' => $avi->plat->marchand->nom_marchand,
+                        'image_marchand' => $avi->plat->marchand->image_marchand
+                    ] : null,
+                    'client' => $avi->client ? [
+                        'id' => $avi->client->id,
+                        'nom' => $avi->client->nom_client,
+                        'image_client' => $avi->client->image_client
+                    ] : null
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $data,
+                'message' => 'Affichage des avis'
+            ], 200);
+
+        } catch (QueryException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l’affichage de la liste des avis',
+                'erreur' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
 }

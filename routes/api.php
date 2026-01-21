@@ -256,6 +256,7 @@ Route::post('/ajout/avis/{id_plat}', [AvisController::class, 'ajout_avis'])->mid
 Route::post('/delete/avis/{id}', [AvisController::class, 'delete_avis'])->middleware('auth:admin');
 Route::get('/avis', [AvisController::class, 'avis'])->middleware('auth:admin');
 Route::get('/avis/marchand', [AvisController::class, 'avis_marchand'])->middleware('auth:marchand');
+Route::get('/avis/page', [AvisController::class, 'avis_page']);
 
 //Publicites
 Route::middleware('auth:admin')->group(function(){
