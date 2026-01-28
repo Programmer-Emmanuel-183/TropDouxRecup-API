@@ -178,13 +178,16 @@ class PlatController extends Controller
     }
 
 
-        public function plats(Request $request){
+    public function plats(Request $request){
         try {
 
             $client = $request->user('client'); // null si pas connecté
 
             $begin = $request->query('begin');
             $end = $request->query('end');
+
+            // Nombre d’éléments par page (par défaut 10)
+            $perPage = $request->query('limit', 10);
 
             $query = Plat::with(['categorie', 'marchand'])
                 ->where('is_active', true)
@@ -194,21 +197,20 @@ class PlatController extends Controller
                 $query->whereBetween('prix_reduit', [(int) $begin, (int) $end]);
             }
 
-            $plats = $query->get();
+            // 🔥 Pagination ici
+            $plats = $query->paginate($perPage);
 
             if ($plats->isEmpty()) {
                 return response()->json([
                     'success' => true,
                     'data' => [],
-                    'message' => 'Aucun plat trouvé'
+                    'message' => 'Aucun plat trouvé',
                 ], 200);
             }
 
-            $data = $plats->map(function ($plat) use ($client) {
+            // Transformer les données sans casser la pagination
+            $formatted = $plats->map(function ($plat) use ($client) {
 
-                /**
-                 * ❤️ Favoris plat
-                 */
                 $isFavorite = false;
 
                 if ($client) {
@@ -233,18 +235,25 @@ class PlatController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $data,
-                'message' => 'Liste des plats'
+                'message' => 'Liste des plats',
+                'data' => $formatted, // liste simple
+                'external_data' => [
+                    'current_page' => $plats->currentPage(),
+                    'total_page' => $plats->lastPage(),
+                    // 'limit' => $plats->perPage(),
+                    // 'total_items' => $plats->total(),
+                ],
             ], 200);
 
-        } catch (QueryException $e) {
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de l’affichage des plats',
-                'erreur' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
+
 
 
 
@@ -292,6 +301,12 @@ class PlatController extends Controller
                         'image_categorie' => $plat->categorie->image_categorie
                     ] : null,
                     'etoile' => $moyenne,
+                    'merchent' => [
+                        'id' => $plat->marchand->id,
+                        'localite' => $plat->marchand->commune->localite,
+                        'nom_merchent' => $plat->marchand->nom_marchand,
+                        'image_merchent' => $plat->marchand->image_marchand
+                    ]
                     // 'recommandation' => $recommandations
                 ]
             ], 200);

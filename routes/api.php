@@ -20,6 +20,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PanierController;
 use App\Http\Controllers\PlatController;
 use App\Http\Controllers\PubliciteController;
+use App\Http\Controllers\SuggestionController;
 use App\Http\Controllers\TransactionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -274,3 +275,6 @@ Route::middleware('auth:client')->group(function(){
     Route::get('/plats/favoris', [FavorisController::class, 'plats_favoris']);
     Route::get('/marchands/favoris', [FavorisController::class, 'marchands_favoris']);
 });
+
+//Suggestion des recherches
+Route::get('/suggestion', [SuggestionController::class, 'search']);

@@ -52,4 +52,9 @@ class Marchand extends Authenticatable
     public function abonnement(){
         return $this->belongsTo(Abonnement::class, 'id_abonnement');
     }
+
+    public function plats(){
+        return $this->hasMany(Plat::class, 'id_marchand');
+    }
+
 }

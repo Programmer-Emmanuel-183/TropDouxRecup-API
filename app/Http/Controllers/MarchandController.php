@@ -95,19 +95,24 @@ class MarchandController extends Controller
             // Client connecté ou non
             $client = $request->user('client'); // null si pas de token
 
+            // Nombre de marchands par page (par défaut 10)
+            $perPage = $request->query('limit', 10);
+
+            // 🔥 Pagination ici
             $marchands = Marchand::where('is_verify', true)
                 ->orderBy('created_at', 'desc')
-                ->get();
+                ->paginate($perPage);
 
             if ($marchands->isEmpty()) {
                 return response()->json([
                     'success' => true,
                     'data' => [],
-                    'message' => 'Aucun marchand trouvé'
+                    'message' => 'Aucun marchand trouvé',
                 ], 200);
             }
 
-            $data = $marchands->map(function ($marchand) use ($client) {
+            // Transformer les données sans casser la pagination
+            $formatted = $marchands->map(function ($marchand) use ($client) {
 
                 /**
                  * ⭐ Moyenne des étoiles
@@ -141,7 +146,7 @@ class MarchandController extends Controller
                 }
 
                 /**
-                 * ❤️ Favoris (SEULEMENT si client connecté)
+                 * ❤️ Favoris (si client connecté)
                  */
                 $isFavorite = false;
 
@@ -165,18 +170,26 @@ class MarchandController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $data,
-                'message' => 'Liste des marchands affichée avec succès'
+                'message' => 'Liste des marchands affichée avec succès',
+                'data' => $formatted, // liste simple
+                'external_data' => [
+                    'current_page' => $marchands->currentPage(),
+                    'total_page' => $marchands->lastPage(),
+                    // 'per_page' => $marchands->perPage(),
+                    // 'total_items' => $marchands->total(),
+                ],
             ], 200);
 
-        } catch (QueryException $e) {
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de l’affichage de la liste des marchands',
-                'erreur' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
+
+
 
 
 
