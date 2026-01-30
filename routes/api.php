@@ -17,6 +17,7 @@ use App\Http\Controllers\GestionClientMarchandController;
 use App\Http\Controllers\LocaliteController;
 use App\Http\Controllers\MarchandController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PaiementAbonnementController;
 use App\Http\Controllers\PanierController;
 use App\Http\Controllers\PlatController;
 use App\Http\Controllers\PubliciteController;
@@ -125,6 +126,8 @@ Route::middleware('auth:client')->group(function(){
     Route::post('/ajout/panier', [PanierController::class, 'ajout_panier']);
     Route::get('/panier', [PanierController::class, 'panier']);
     Route::post('/delete/plat/panier/{id_item}', [PanierController::class, 'delete_plat']);
+    Route::post('/add/quantite/panier/{id_item}', [PanierController::class, 'add_quantite']);
+    Route::post('/baisse/quantite/panier/{id_item}', [PanierController::class, 'baisse_quantite']);
 });
 
 //Commission
@@ -278,3 +281,8 @@ Route::middleware('auth:client')->group(function(){
 
 //Suggestion des recherches
 Route::get('/suggestion', [SuggestionController::class, 'search']);
+
+//Paiement abonnement
+Route::post('/initialiser/paiement/{id_abonnement}', [PaiementAbonnementController::class, 'initialiser_paiement'])->middleware('auth:marchand');
+Route::get('/verifier/paiement/{depositId}', [PaiementAbonnementController::class, 'verifier_paiement']);
+Route::get('/callback/paiement', [PaiementAbonnementController::class, 'callback_pawapay']);

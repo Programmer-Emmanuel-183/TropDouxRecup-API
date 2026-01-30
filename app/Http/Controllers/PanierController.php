@@ -96,66 +96,133 @@ class PanierController extends Controller
                     'message' => 'Panier vide'
                 ], 200);
             }
+
             $groupes = [];
-            $totalOrigine = 0;
-            $totalReduit = 0;
 
             foreach ($panier as $item) {
 
                 $plat = Plat::with('marchand')->find($item->id_plat);
-                if (!$plat) continue;
+                if (!$plat || !$plat->marchand) {
+                    continue;
+                }
 
                 $marchandId = $plat->marchand->id;
-                $marchandNom = $plat->marchand->nom_marchand;
 
-                $prixOrigine = $plat->prix_origine * $item->quantite;
-                $prixReduit = $plat->prix_reduit * $item->quantite;
-
-                $totalOrigine += $prixOrigine;
-                $totalReduit += $prixReduit;
-
+                // Initialisation du marchand
                 if (!isset($groupes[$marchandId])) {
                     $groupes[$marchandId] = [
                         'marchand_id' => $marchandId,
-                        'marchand_nom' => $marchandNom,
+                        'marchand_nom' => $plat->marchand->nom_marchand,
+                        'marchand_image' => $plat->marchand->image_marchand ?? null,
+                        'total' => 0,
                         'plats' => []
                     ];
                 }
 
+                $prixOrigineTotal = $plat->prix_origine * $item->quantite;
+                $prixReduitTotal  = $plat->prix_reduit * $item->quantite;
+
+                // Ajout du plat
                 $groupes[$marchandId]['plats'][] = [
                     'id_item' => $item->id,
                     'id_plat' => $plat->id,
                     'nom_plat' => $plat->nom_plat,
                     'image' => $plat->image_couverture,
                     'quantite' => $item->quantite,
-                    'prix' => $plat->prix_reduit,
-                    // 'prix_total' => $prixReduit
+                    'prix_origine' => $plat->prix_origine,
+                    'prix_reduit' => $plat->prix_reduit,
                 ];
-            }
 
-            $totalEconomies = $totalOrigine - $totalReduit;
+                // Total par marchand (prix réduit comme dans ton mock)
+                $groupes[$marchandId]['total'] += $prixReduitTotal;
+            }
 
             return response()->json([
                 'success' => true,
-                'data' => [
-                    'items' => array_values($groupes), 
-                    'bilan' => [
-                        'total' => $totalOrigine,
-                        'economies' => $totalEconomies,
-                        'total_a_payer' => $totalReduit
-                    ]
-                ],
-                'message' => 'Panier récupéré avec succès.'
+                'data' => array_values($groupes),
+                'message' => 'Panier récupéré avec succès'
             ], 200);
 
-        } catch (QueryException $e) {
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de l’affichage du panier du client',
+                'message' => 'Erreur lors de la récupération du panier',
                 'erreur' => $e->getMessage()
             ], 500);
         }
     }
+
+    public function add_quantite(Request $request, $id_item){
+        try{
+            $panier = Panier::find($id_item);
+            if(!$panier){
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Plat introuvable'
+                ],404);
+            }
+
+
+
+            if($panier->quantite >= $panier->plat->quantite_disponible){
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Vous ne pouvez pas ajouté de plat au dessus de la quantite de plat disponible'
+                ],400);
+            }
+
+            $panier->quantite += 1;
+            $panier->save();
+            return response()->json([
+                'success' => true,
+                'message' => 'Quantite ajoutée avec succès'
+            ],200);
+        }
+        catch(QueryException $e){
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l’augmentation de la quantité du plat',
+                'erreur' => $e->getMessage()
+            ],500);
+        }
+    }
+
+
+    public function baisse_quantite(Request $request, $id_item){
+        try{
+            $panier = Panier::find($id_item);
+            if(!$panier){
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Plat introuvable'
+                ],404);
+            }
+
+
+
+            if($panier->quantite === 1){
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Vous ne pouvez plus diminuer la quantité'
+                ],400);
+            }
+
+            $panier->quantite -= 1;
+            $panier->save();
+            return response()->json([
+                'success' => true,
+                'message' => 'Quantite diminuée avec succès'
+            ],200);
+        }
+        catch(QueryException $e){
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la diminution de la quantité du plat',
+                'erreur' => $e->getMessage()
+            ],500);
+        }
+    }
+
 
 
     public function delete_plat(Request $request, $id_item){

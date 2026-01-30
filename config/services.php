@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'pawapay' => [
+        'api_key' => env('PAWAPAY_API_KEY'),
+        'return_url' => env('PAWAPAY_RETURN_URL'),
+    ],
+
+
 ];

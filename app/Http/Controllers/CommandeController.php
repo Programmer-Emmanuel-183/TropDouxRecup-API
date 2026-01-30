@@ -18,8 +18,8 @@ class CommandeController extends Controller
 {
     public function passer_commande(Request $request){
         $validator = Validator::make($request->all(), [
-            'id_item' => 'required|array',
-            'id_item.*' => 'exists:paniers,id'
+            'marchand_id' => 'required|array',
+            'marchand_id.*' => 'exists:marchands,id'
         ]);
 
         if ($validator->fails()) {
@@ -32,15 +32,18 @@ class CommandeController extends Controller
         try {
             $client = $request->user();
 
+            // 🔥 Récupération des paniers par marchand
             $paniers = Panier::with(['plat.marchand'])
                 ->where('id_client', $client->id)
-                ->whereIn('id', $request->id_item)
+                ->whereHas('plat', function ($q) use ($request) {
+                    $q->whereIn('id_marchand', $request->marchand_id);
+                })
                 ->get();
 
             if ($paniers->isEmpty()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Aucun panier trouvé pour ce client.'
+                    'message' => 'Aucun panier trouvé pour ces marchands.'
                 ], 404);
             }
 
@@ -70,18 +73,18 @@ class CommandeController extends Controller
 
             $commission = Commission::first();
 
+            // 🧾 Commande principale
             $commande = new Commande();
             $commande->statut = 'pending';
             $commande->save();
 
-            // Pour regrouper les commandes par marchand (notifications)
             $marchandCommandes = [];
 
             foreach ($paniers as $panier) {
 
                 $plat = $panier->plat;
 
-                // Mise à jour stock
+                // 🔻 Mise à jour stock
                 $plat->quantite_disponible -= $panier->quantite;
                 $plat->save();
 
@@ -99,13 +102,15 @@ class CommandeController extends Controller
                 $sous->code_qr = 'data:image/svg+xml;base64,' . base64_encode($svg);
                 $sous->save();
 
-                // 📦 Regroupement pour notification marchand
+                // 📦 Regroupement marchand
                 $marchandCommandes[$plat->id_marchand][] = $sous;
             }
 
-            // Nettoyage paniers
+            // 🧹 Nettoyage panier par marchand
             Panier::where('id_client', $client->id)
-                ->whereIn('id', $request->id_item)
+                ->whereHas('plat', function ($q) use ($request) {
+                    $q->whereIn('id_marchand', $request->marchand_id);
+                })
                 ->delete();
 
             $sousCommandes = SousCommande::with(['plat.marchand'])
@@ -135,7 +140,7 @@ class CommandeController extends Controller
                 $admin->solde += $commissionAdmin;
 
                 $dishes[] = [
-                    'id' => $sc->id_plat,
+                    'id' => $plat->id,
                     'name' => $plat->nom_plat,
                     'quantity' => $sc->quantite_plat,
                     'unit_price' => $plat->prix_reduit,
@@ -148,18 +153,19 @@ class CommandeController extends Controller
 
             $admin->save();
 
-            if($client->device_token !== null){
-                $notification_client = new Notification();
-                $notification_client->type = 'commande';
-                $notification_client->title = 'Commande effectuée 🎉';
-                $notification_client->body = "Votre commande a été envoyée avec succès.";
-                $notification_client->role = 'client';
-                $notification_client->id_user = $client->id;
-                $notification_client->save();
-                app(PushNotifController::class)->sendPush($notification_client);
+            // 🔔 Notification client
+            if ($client->device_token !== null) {
+                $notif = Notification::create([
+                    'type' => 'commande',
+                    'title' => 'Commande effectuée 🎉',
+                    'body' => 'Votre commande a été envoyée avec succès.',
+                    'role' => 'client',
+                    'id_user' => $client->id
+                ]);
+                app(PushNotifController::class)->sendPush($notif);
             }
-            
 
+            // 🔔 Notifications marchands
             $notifications = [];
 
             foreach ($marchandCommandes as $idMarchand => $commandes) {
@@ -168,29 +174,20 @@ class CommandeController extends Controller
                 $nbPlats = collect($commandes)->sum('quantite_plat');
 
                 if ($marchand->device_token !== null) {
-                    $notification = Notification::create([
+                    $notifications[] = Notification::create([
                         'type' => 'commande',
                         'title' => 'Nouvelle commande 📦',
                         'body' => "Vous avez reçu une nouvelle commande de {$client->nom_client} ({$nbPlats} plat(s)).",
                         'role' => 'marchand',
                         'id_user' => $marchand->id,
                     ]);
-
-                    // ✅ Seulement si elle existe
-                    $notifications[] = $notification;
                 }
             }
 
-
-            // 🔥 ENVOI OPTIMISÉ
             $pushService = app(PushNotifController::class);
-
-            if (count($notifications) === 1) {
-                $pushService->sendPush($notifications[0]);
-            } else {
-                $pushService->sendPushBatch($notifications);
-            }
-
+            count($notifications) === 1
+                ? $pushService->sendPush($notifications[0])
+                : $pushService->sendPushBatch($notifications);
 
             return response()->json([
                 'success' => true,
@@ -207,7 +204,7 @@ class CommandeController extends Controller
                     'dishes' => $dishes
                 ],
                 'message' => 'Commande effectuée avec succès'
-            ],200);
+            ], 200);
 
         } catch (\Exception $e) {
             return response()->json([
@@ -216,6 +213,7 @@ class CommandeController extends Controller
             ], 500);
         }
     }
+
 
 
     public function commandes_client(Request $request){

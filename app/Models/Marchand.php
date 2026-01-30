@@ -27,7 +27,12 @@ class Marchand extends Authenticatable
         'id_abonnement',
         'date_abonnement',
         'id_commune',
-        'password_reset_token'
+        'password_reset_token',
+        'fin_abonnement',
+    ];
+
+    protected $casts = [
+        'fin_abonnement' => 'datetime',
     ];
 
 
