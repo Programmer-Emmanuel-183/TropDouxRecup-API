@@ -139,6 +139,7 @@ Route::get('/commission', [CommissionController::class, 'commission']);
 Route::middleware('auth:client')->group(function(){
     Route::post('/passer/commande', [CommandeController::class, 'passer_commande']);
     Route::get('/commandes/client', [CommandeController::class, 'commandes_client']);
+    Route::get('/commande/{id}', [CommandeController::class, 'commande']);
 });
 //Commandes du marchand
 Route::middleware(['auth:marchand', 'marchand.active'])->group(function(){

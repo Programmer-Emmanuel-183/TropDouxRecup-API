@@ -267,7 +267,7 @@ class CommandeController extends Controller
                 $result[] = [
                     'id' => $commande->id,
                     'orderId' => $orderId,
-                    'customerName' => $client->nom_client,
+                    'merchantName' => $items->first()->plat->marchand->nom_marchand ?? '',
                     'status' => $commande->statut,
                     'createdAt' => $commande->created_at,
                     'commission' => $commission,
@@ -713,6 +713,80 @@ class CommandeController extends Controller
             ], 500);
         }
     }
+
+
+    public function commande(Request $request, $id)
+{
+    try {
+        $client = $request->user();
+
+        // 🔹 Sous-commandes DU CLIENT pour cette commande
+        $sousCommandes = SousCommande::with(['plat.marchand'])
+            ->where('id_commande', $id)
+            ->where('id_client', $client->id)
+            ->get();
+
+        if ($sousCommandes->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Commande introuvable pour ce client.'
+            ], 404);
+        }
+
+        $commande = Commande::find($id);
+        $first = $sousCommandes->first();
+        $marchand = $first->plat->marchand;
+
+        // 🔹 Dishes
+        $dishes = [];
+        $totalPrice = 0;
+
+        foreach ($sousCommandes as $s) {
+            $dishes[] = [
+                'id' => $s->id_plat,
+                'name' => $s->plat->nom_plat,
+                'quantity' => $s->quantite_plat,
+                'unit_price' => $s->plat->prix_reduit,
+            ];
+
+            $totalPrice += $s->plat->prix_reduit * $s->quantite_plat;
+        }
+
+        // 🔹 completedAt
+        $allRecovered = $sousCommandes->every(
+            fn ($i) => $i->date_de_recuperation !== null
+        );
+
+        $completedAt = $allRecovered
+            ? $sousCommandes->max('date_de_recuperation')->toISOString()
+            : null;
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'orderId' => $first->code_commande,
+                'merchantName' => $marchand->nom_marchand,
+                'createdAt' => $commande->created_at,
+                'totalPriceOrder' => $totalPrice,
+                'code_qr' => $first->code_qr,
+                'localite' => $marchand->commune->localite ?? '',
+                'merchant_image' => $marchand->image_marchand ?? null,
+                'status' => $commande->statut,
+                'completedAt' => $completedAt,
+                'dishes' => $dishes
+            ],
+            'message' => 'Détail de la commande'
+        ], 200);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur interne : ' . $e->getMessage()
+        ], 500);
+    }
+}
+
+
 
 
 
