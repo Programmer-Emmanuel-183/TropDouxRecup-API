@@ -184,7 +184,7 @@ class DatabaseSeeder extends Seeder
 
         $activation = new ActivationCompte();
         $activation->id = (string) Str::uuid();
-        $activation->activate = true;
+        $activation->activate = false;
         $activation->save();
         $this->command->info("     - Choix d’activation par defaut cré");
 

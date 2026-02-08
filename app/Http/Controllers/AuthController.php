@@ -53,7 +53,7 @@ class AuthController extends Controller
                     if ($marchand->is_verify) {
                         return response()->json([
                             'success' => false,
-                            'message' => 'Cet email ou numéro de téléphone est déjà vérifié.'
+                            'message' => 'Compte déjà existant, connectez vous avec vos identifiants.'
                         ], 409);
                     }
 

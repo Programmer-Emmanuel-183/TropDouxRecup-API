@@ -11,7 +11,7 @@ class LocaliteController extends Controller
 {
     public function localites(){
         try{
-            $localites = Commune::all();
+            $localites = Commune::orderBy('localite', 'desc')->get();
             if($localites->isEmpty()){
                 return response()->json([
                     'success' => true,

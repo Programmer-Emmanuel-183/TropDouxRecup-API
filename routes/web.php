@@ -6,7 +6,7 @@ Route::get('/login', function () {
     return response()->json([
         'success' => false,
         'message' => 'Non authentifié, veuillez vous connecter.'
-    ],401);
+    ],403);
 })->name('login');
 
 Route::get('/', function(){
