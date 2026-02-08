@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
-class Avantage extends Model
+class CommissionEntreprise extends Model
 {
     public $incrementing = false; // empêche l'auto-incrémentation
     protected $keyType = 'string'; // la clé primaire sera une string
@@ -22,18 +22,6 @@ class Avantage extends Model
     }
 
     protected $fillable = [
-        'nom_avantage',
-        'value'
+        'pourcentage'
     ];
-
-   public function abonnements(){
-        return $this->belongsToMany(
-            Abonnement::class,
-            'avantage_abonnement',
-            'id_avantage',
-            'id_abonnement'
-        );
-    }
-
-
 }

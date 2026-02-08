@@ -88,6 +88,7 @@ class AbonnementController extends Controller
                 )
                 ->withCount('marchands') // relation obligatoire
                 ->with(['avantages:id,nom_avantage,value'])
+                ->orderByRaw("FIELD(type_abonnement, 'debutant', 'premium', 'entreprise')")
                 ->get();
 
             // 🔹 Trouver le max d'utilisation

@@ -19,6 +19,7 @@ class Marchand extends Authenticatable
         'email_marchand',
         'tel_marchand',
         'password_marchand',
+        'solde_marchand',
         'code_otp',
         'otp_expire_at',
         'is_verify',

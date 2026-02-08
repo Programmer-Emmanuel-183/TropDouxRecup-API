@@ -5,9 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Avis;
 use App\Models\Categorie;
 use App\Models\FavorisPlat;
+use App\Models\Notification;
 use App\Models\Plat;
+use App\Models\Time;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
 
@@ -64,6 +67,44 @@ class PlatController extends Controller
                     }
                 }
             }
+
+            $nombrePlatsActuels = $user->plats()->count(); // nombre de plats déjà ajoutés
+
+            // Récupérer la limite "Plats par jour" pour son abonnement
+            $abonnement = $user->abonnement;
+
+            $avantagePlats = $abonnement?->avantages
+                ->firstWhere('nom_avantage', 'Plats par jour');
+
+            if ($avantagePlats && $avantagePlats->value !== null) {
+                $limite = $avantagePlats->value; // ex: 10
+                $restants = $limite - $nombrePlatsActuels; // combien il reste avant d'atteindre la limite
+
+                // 🔹 Si le nombre de plats restants est 5, 2 ou 1 → notification
+                if (in_array($restants, [5, 2, 1])) {
+
+                    $notif = Notification::create([
+                        'type' => 'abonnement',
+                        'title' => 'Limite de plats ⚠️',
+                        'body' => "Il vous reste seulement $restants plats avant d'atteindre la limite de votre abonnement débutant.",
+                        'role' => 'marchand', 
+                        'id_user' => $user->id,
+                    ]);
+
+                    // Envoi de la notification push
+                    app(PushNotifController::class)->sendPush($notif);
+                }
+
+                // 🔹 Si la limite est atteinte → blocage
+                if ($nombrePlatsActuels >= $limite) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Vous avez atteint le nombre maximum de plats autorisés pour votre abonnement débutant."
+                    ], 400);
+                }
+            }
+
+
 
             $plat = Plat::create([
                 'nom_plat' => $request->nom_plat,
@@ -322,19 +363,16 @@ class PlatController extends Controller
 
     public function plat_recommande(Request $request){
         try{
-            $recommandations = Plat::inRandomOrder()->limit(10)->get()->map(function ($item) {
-                return [
-                    'id' => $item->id,
-                    'nom_plat' => $item->nom_plat,
-                    'image_couverture' => $item->image_couverture,
-                    'quantite_plat' => $item->quantite_plat,
-                    // 'quantite_disponible' => $item->quantite_disponible,
-                    'prix_origine' => $item->prix_origine,
-                    'prix_reduit' => $item->prix_reduit,
-                ];
-            });
+            $client = $request->user('client'); // null si pas connecté
 
-            if($recommandations->isEmpty()){
+            // Nombre d’éléments par page (par défaut 10)
+            $perPage = $request->query('limit', 10);
+
+            // 🔥 Pagination ici
+            $plats = Plat::inRandomOrder()
+                ->paginate($perPage);
+
+            if($plats->isEmpty()){
                 return response()->json([
                     'success' => true,
                     'data' => [],
@@ -342,10 +380,39 @@ class PlatController extends Controller
                 ],200);
             }
 
+            // Transformer les données sans casser la pagination
+            $formatted = $plats->map(function ($plat) use ($client) {
+                 $isFavorite = false;
+
+                if ($client) {
+                    $isFavorite = FavorisPlat::where('id_client', $client->id)
+                        ->where('id_plat', $plat->id)
+                        ->exists();
+                }
+                return [
+                    'id' => $plat->id,
+                    'nom_plat' => $plat->nom_plat,
+                    'image_couverture' => $plat->image_couverture,
+                    'prix_origine' => $plat->prix_origine,
+                    'prix_reduit' => $plat->prix_reduit,
+                    'quantite_plat' => $plat->quantite_plat,
+                    'description_plat' => $plat->description_plat,
+                    'quantite_disponible' => $plat->quantite_disponible,
+                    'is_favorite' => $isFavorite,
+                    'marchand' => $plat->marchand->nom_marchand ?? null,
+                ];
+            });
+
             return response()->json([
                 'success' => true,
-                'data' => $recommandations,
-                'message' => 'Liste des recommandations affichées avec succès'
+                'message' => 'Liste des recommandations affichées avec succès',
+                'data' => $formatted, // liste simple
+                'external_data' => [
+                    'current_page' => $plats->currentPage(),
+                    'total_page' => $plats->lastPage(),
+                    // 'limit' => $plats->perPage(),
+                    // 'total_items' => $plats->total(),
+                ],
             ],200);
         }
         catch(QueryException $e){
@@ -356,6 +423,7 @@ class PlatController extends Controller
             ],500);
         }
     }
+
 
 
 
@@ -451,6 +519,13 @@ class PlatController extends Controller
                     'success' => false,
                     'message' => 'Plat non trouvé'
                 ], 404);
+            }
+
+            if ($request->is_active && $this->isTimeBlocked()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Impossible d’activer un plat durant cet intervalle.'
+                ], 403);
             }
 
             /**
@@ -580,6 +655,115 @@ class PlatController extends Controller
             ],500);
         }
     }
+
+    public function plats_par_categorie(Request $request, $id_categorie){
+        try {
+
+            // Client connecté ou non
+            $client = $request->user('client'); // null si pas connecté
+
+            // Vérifier que la catégorie existe
+            $categorie = Categorie::find($id_categorie);
+            if (!$categorie) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Catégorie non trouvée'
+                ], 404);
+            }
+
+            // Pagination
+            $perPage = $request->query('limit', 10);
+
+            // Query principale
+            $query = Plat::with(['marchand', 'categorie'])
+                ->where('is_active', true)
+                ->where('quantite_disponible', '>', 0)
+                ->where('id_categorie', $id_categorie);
+
+            $plats = $query->paginate($perPage);
+
+            if ($plats->isEmpty()) {
+                return response()->json([
+                    'success' => true,
+                    'data' => [],
+                    'external_data' => [
+                        'categorie' => [
+                            'id' => $categorie->id,
+                            'nom_categorie' => $categorie->nom_categorie,
+                            'image_categorie' => $categorie->image_categorie,
+                        ],
+                        'current_page' => $plats->currentPage(),
+                        'total_page' => $plats->lastPage(),
+                    ],
+                    'message' => 'Aucun plat trouvé pour cette catégorie',
+                ], 200);
+            }
+
+            // Formatage des plats
+            $formatted = $plats->map(function ($plat) use ($client) {
+
+                $isFavorite = false;
+
+                if ($client) {
+                    $isFavorite = FavorisPlat::where('id_client', $client->id)
+                        ->where('id_plat', $plat->id)
+                        ->exists();
+                }
+
+                return [
+                    'id' => $plat->id,
+                    'nom_plat' => $plat->nom_plat,
+                    'description_plat' => $plat->description_plat,
+                    'image_couverture' => $plat->image_couverture,
+                    'prix_origine' => $plat->prix_origine,
+                    'prix_reduit' => $plat->prix_reduit,
+                    'quantite_plat' => $plat->quantite_plat,
+                    'quantite_disponible' => $plat->quantite_disponible,
+                    'is_favorite' => $isFavorite,
+                    'marchand' => $plat->marchand->nom_marchand ?? null,
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $formatted,
+                'external_data' => [
+                    // 'categorie' => [
+                    //     'id' => $categorie->id,
+                    //     'nom_categorie' => $categorie->nom_categorie,
+                    //     'image_categorie' => $categorie->image_categorie,
+                    // ],
+                    'current_page' => $plats->currentPage(),
+                    'total_page' => $plats->lastPage(),
+                ],
+                'message' => 'Liste des plats par catégorie',
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des plats par catégorie',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+
+    private function isTimeBlocked(): bool{
+        $time = Time::first();
+        if (!$time) return false;
+
+        $now = Carbon::now()->format('H:i:s');
+
+        $disabled = $time->time_disabled;
+        $enabled  = $time->time_enabled;
+
+        return $disabled < $enabled
+            ? ($now >= $disabled && $now < $enabled)
+            : ($now >= $disabled || $now < $enabled);
+    }
+
+
 
 
 

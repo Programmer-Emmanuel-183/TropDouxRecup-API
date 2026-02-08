@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('commissions', function (Blueprint $table) {
+        Schema::create('commission_premia', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->integer('pourcentage');
             $table->timestamps();
@@ -23,6 +23,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('commissions');
+        Schema::dropIfExists('commission_premia');
     }
 };

@@ -11,9 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('commissions', function (Blueprint $table) {
+        Schema::create('times', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->integer('pourcentage');
+            $table->time('time_disabled');
+            $table->time('time_enabled');
             $table->timestamps();
         });
     }
@@ -23,6 +24,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('commissions');
+        Schema::dropIfExists('times');
     }
 };

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Avis;
 use App\Models\FavorisMarchand;
+use App\Models\FavorisPlat;
 use App\Models\Marchand;
 use App\Models\Plat;
 use App\Models\SousCommande;
@@ -193,9 +194,11 @@ class MarchandController extends Controller
 
 
 
-    public function plat_disponible($id){
+    public function plat_disponible(Request $request, $id){
         try{
             $marchand = Marchand::find($id);
+
+            $client = $request->user();
 
             if (!$marchand) {
                 return response()->json([
@@ -204,32 +207,60 @@ class MarchandController extends Controller
                 ], 404);
             }
 
+            // Nombre d’éléments par page (par défaut 10)
+            $perPage = $request->query('limit', 10);
+
+            // 🔥 Pagination ici
             $plats = Plat::where('id_marchand', $id)
                 ->where('is_active', true)
-                ->paginate(10);
+                ->paginate($perPage);
 
-            $data = $plats->getCollection()->map(function ($plat) {
+            if ($plats->isEmpty()) {
+                return response()->json([
+                    'success' => true,
+                    'data' => [],
+                    'message' => 'Aucun plat disponible'
+                ], 200);
+            }
+
+            // Transformer les données sans casser la pagination
+            $formatted = $plats->map(function ($plat) use ($client){
                 $pourcentage = $plat->prix_origine > 0 
                     ? round((($plat->prix_origine - $plat->prix_reduit) / $plat->prix_origine) * 100, 2)
                     : 0;
 
+                $isFavorite = false;
+
+                if ($client) {
+                    $isFavorite = FavorisPlat::where('id_client', $client->id)
+                        ->where('id_plat', $plat->id)
+                        ->exists();
+                }
+
                 return [
+                    'id' => $plat->id,
                     'nom_plat' => $plat->nom_plat,
                     'image_couverture' => $plat->image_couverture,
-                    'quantite_disponible' => $plat->quantite_disponible,
                     'prix_origine' => $plat->prix_origine,
                     'prix_reduit' => $plat->prix_reduit,
+                    'quantite_plat' => $plat->quantite_plat,
+                    'description_plat' => $plat->description_plat,
+                    'quantite_disponible' => $plat->quantite_disponible,
+                    'is_favorite' => $isFavorite,
+                    'marchand' => $plat->marchand->nom_marchand ?? null,
                 ];
             });
 
             return response()->json([
                 'success' => true,
-                'data' => $data,
-                'current_page' => $plats->currentPage(),
-                'last_page' => $plats->lastPage(),
-                'per_page' => $plats->perPage(),
-                'total' => $plats->total(),
-                'message' => 'Plats disponibles du marchand affichés avec succès'
+                'message' => 'Plats disponibles du marchand affichés avec succès',
+                'data' => $formatted, // liste simple
+                'external_data' => [
+                    'current_page' => $plats->currentPage(),
+                    'total_page' => $plats->lastPage(),
+                    // 'limit' => $plats->perPage(),
+                    // 'total_items' => $plats->total(),
+                ],
             ],200);
 
         } catch(QueryException $e){
@@ -240,6 +271,7 @@ class MarchandController extends Controller
             ],500);
         }
     }
+
 
 
     public function general_info(Request $request){
@@ -413,6 +445,33 @@ class MarchandController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Erreur lors de l’affichage de l’adresse du marchand',
+                'erreur' => $e->getMessage()
+            ],500);
+        }
+    }
+
+
+    public function afficher_solde_marchands(Request $request){
+        try{
+            $marchands = Marchand::sum('solde_marchand') ?? 0;
+            // if($marchands->isEmpty()){
+            //     return response()->json([
+            //         'success' => true,
+            //         'data' => [],
+            //         'message' => 'Aucun solde trouvé'
+            //     ],200);
+            // }
+
+            return response()->json([
+                'success' => true,
+                'data' => (float) $marchands,
+                'message' => 'Solde total des marchands affiché avec succès'
+            ],200);
+        }
+        catch(QueryException $e){
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l’affichage du solde total de tous les marchands',
                 'erreur' => $e->getMessage()
             ],500);
         }

@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Panier;
 use App\Models\Plat;
+use App\Models\Time;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
 
 class PanierController extends Controller
@@ -31,6 +33,14 @@ class PanierController extends Controller
                     'message' => 'Client non trouvé'
                 ],404);
             }
+
+            if ($this->isTimeBlocked()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Les commandes sont temporairement fermées.'
+                ], 403);
+            }
+
 
             $plat = Plat::find($request->id_plat);
             if(!$plat){
@@ -152,8 +162,21 @@ class PanierController extends Controller
         }
     }
 
-    public function add_quantite(Request $request, $id_item){
+    public function add_quantite(Request $request){
         try{
+
+            $validator = Validator::make($request->all(), [
+                'id_item' => 'required|exists:paniers,id'
+            ]);
+
+            if($validator->fails()){
+                return response()->json([
+                    'success' => false,
+                    'message' => $validator->errors()->first()
+                ],422);
+            }
+
+            $id_item = $request->id_item;
             $panier = Panier::find($id_item);
             if(!$panier){
                 return response()->json([
@@ -188,8 +211,21 @@ class PanierController extends Controller
     }
 
 
-    public function baisse_quantite(Request $request, $id_item){
+    public function baisse_quantite(Request $request){
         try{
+
+            $validator = Validator::make($request->all(), [
+                'id_item' => 'required|exists:paniers,id'
+            ]);
+
+            if($validator->fails()){
+                return response()->json([
+                    'success' => false,
+                    'message' => $validator->errors()->first()
+                ],422);
+            }
+
+            $id_item = $request->id_item;
             $panier = Panier::find($id_item);
             if(!$panier){
                 return response()->json([
@@ -225,8 +261,21 @@ class PanierController extends Controller
 
 
 
-    public function delete_plat(Request $request, $id_item){
+    public function delete_plat(Request $request){
         try{
+
+            $validator = Validator::make($request->all(), [
+                'id_item' => 'required|exists:paniers,id'
+            ]);
+
+            if($validator->fails()){
+                return response()->json([
+                    'success' => false,
+                    'message' => $validator->errors()->first()
+                ],422);
+            }
+
+            $id_item = $request->id_item;
             $panier = Panier::find($id_item);
             if(!$panier){
                 return response()->json([
@@ -248,6 +297,20 @@ class PanierController extends Controller
                 'erreur' => $e->getMessage()
             ],500);
         }
+    }
+
+    private function isTimeBlocked(): bool{
+        $time = Time::first();
+        if (!$time) return false;
+
+        $now = Carbon::now()->format('H:i:s');
+
+        $disabled = $time->time_disabled;
+        $enabled  = $time->time_enabled;
+
+        return $disabled < $enabled
+            ? ($now >= $disabled && $now < $enabled)
+            : ($now >= $disabled || $now < $enabled);
     }
 
 }

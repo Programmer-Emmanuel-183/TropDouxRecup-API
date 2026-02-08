@@ -31,10 +31,9 @@ class AvantageController extends Controller
     public function ajout_avantage(Request $request){
         $validator = Validator::make($request->all(), [
             'nom_avantage' => 'required',
-            'value' => 'required'
+            'value' => 'nullable'
         ],[
             'nom_avantage.required' => 'Le nom de l’avantage est requis.',
-            'value.required' => 'Le nom de l’avantage est requis.'
         ]);
 
         if($validator->fails()){
@@ -68,10 +67,9 @@ class AvantageController extends Controller
     public function update_avantage(Request $request, $id){
         $validator = Validator::make($request->all(), [
             'nom_avantage' => 'required',
-            'value' => 'required'
+            'value' => 'nullable'
         ],[
             'nom_avantage.required' => 'Le nom de l’avantage est requis.',
-            'value.required' => 'Le nom de l’avantage est requis.'
         ]);
 
         if($validator->fails()){
@@ -91,6 +89,7 @@ class AvantageController extends Controller
             }
 
             $avantage->nom_avantage = $request->nom_avantage;
+            $avantage->value = $request->value ?? $avantage->value;
             $avantage->save();
 
             return response()->json([

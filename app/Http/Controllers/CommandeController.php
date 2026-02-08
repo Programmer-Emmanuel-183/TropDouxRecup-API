@@ -71,7 +71,20 @@ class CommandeController extends Controller
                 }
             }
 
-            $commission = Commission::first();
+            // 🔹 Récupération commission selon abonnement du client
+            $commissionType = 'Commission'; // défaut pour débutant
+            if ($client->abonnement) {
+                switch ($client->abonnement->type_abonnement) {
+                    case 'premium':
+                        $commissionType = 'CommissionPremium';
+                        break;
+                    case 'entreprise':
+                        $commissionType = 'CommissionEntreprise';
+                        break;
+                }
+            }
+
+            $commission = $commissionType::first(); // récupère le pourcentage
 
             // 🧾 Commande principale
             $commande = new Commande();
@@ -81,7 +94,6 @@ class CommandeController extends Controller
             $marchandCommandes = [];
 
             foreach ($paniers as $panier) {
-
                 $plat = $panier->plat;
 
                 // 🔻 Mise à jour stock
@@ -106,7 +118,7 @@ class CommandeController extends Controller
                 $marchandCommandes[$plat->id_marchand][] = $sous;
             }
 
-            // 🧹 Nettoyage panier par marchand
+            // 🧹 Nettoyage panier
             Panier::where('id_client', $client->id)
                 ->whereHas('plat', function ($q) use ($request) {
                     $q->whereIn('id_marchand', $request->marchand_id);
@@ -126,7 +138,6 @@ class CommandeController extends Controller
             $admin = Admin::where('role', 2)->first();
 
             foreach ($sousCommandes as $sc) {
-
                 $plat = $sc->plat;
                 $marchand = $plat->marchand;
 
@@ -169,7 +180,6 @@ class CommandeController extends Controller
             $notifications = [];
 
             foreach ($marchandCommandes as $idMarchand => $commandes) {
-
                 $marchand = $commandes[0]->plat->marchand;
                 $nbPlats = collect($commandes)->sum('quantite_plat');
 
@@ -216,30 +226,56 @@ class CommandeController extends Controller
 
 
 
+
     public function commandes_client(Request $request){
         try {
+            // 🔹 Client authentifié
             $client = $request->user();
 
-            $sousCommandes = SousCommande::with('plat')
+            // 🔹 Paramètre statut (completed | pending)
+            $statut = $request->query('statut');
+
+            // 🔹 Récupération des sous-commandes du client
+            $sousCommandes = SousCommande::with(['plat.marchand.commune'])
                 ->where('id_client', $client->id)
                 ->orderBy('created_at', 'desc')
                 ->get();
 
             if ($sousCommandes->isEmpty()) {
                 return response()->json([
-                    'success' => false,
+                    'success' => true,
+                    'data' => [],
+                    'external_data' => [
+                        'total_commandes' => 0,
+                        'total_completed' => 0,
+                        'total_pending' => 0,
+                    ],
                     'message' => 'Aucune commande trouvée.'
-                ], 404);
+                ], 200);
             }
 
+            // 🔹 Groupement par commande
             $grouped = $sousCommandes->groupBy('id_commande');
             $result = [];
 
             foreach ($grouped as $commandeId => $items) {
 
+                // 🔹 Statut calculé
+                $allRecovered = $items->every(
+                    fn ($i) => $i->date_de_recuperation !== null
+                );
+
+                // 🔹 Filtrage par statut (comme marchand)
+                if ($statut === 'completed' && !$allRecovered) {
+                    continue;
+                }
+
+                if ($statut === 'pending' && $allRecovered) {
+                    continue;
+                }
+
                 $commande = Commande::find($commandeId);
                 $orderId = $items->first()->code_commande;
-                $commission = $items->first()->commission ?? 0;
 
                 $dishes = [];
                 $totalPrice = 0;
@@ -251,38 +287,63 @@ class CommandeController extends Controller
                         'name' => $s->plat->nom_plat,
                         'quantity' => $s->quantite_plat,
                         'unit_price' => $s->plat->prix_reduit,
-                        'code_qr' => $s->code_qr
+                        'code_qr' => $s->code_qr,
                     ];
 
                     $totalPrice += $s->plat->prix_reduit * $s->quantite_plat;
                     $totalQuantity += $s->quantite_plat;
                 }
 
-                $allRecovered = $items->every(fn($i) => $i->date_de_recuperation !== null);
-
                 $completedAt = $allRecovered
                     ? $items->max('date_de_recuperation')->toISOString()
                     : null;
 
+                $firstItem = $items->first();
+                $marchand = $firstItem->plat->marchand ?? null;
+
                 $result[] = [
                     'id' => $commande->id,
                     'orderId' => $orderId,
-                    'merchantName' => $items->first()->plat->marchand->nom_marchand ?? '',
+                    'merchantName' => $marchand->nom_marchand ?? '',
+                    'merchant_image' => $marchand->image_marchand ?? null,
+                    'localite' => $marchand->commune->localite ?? '',
                     'status' => $commande->statut,
                     'createdAt' => $commande->created_at,
-                    'commission' => $commission,
                     'totalPriceOrder' => $totalPrice,
                     'orderLength' => $totalQuantity,
                     'completedAt' => $completedAt,
-                    'dishes' => $dishes
                 ];
+            }
+
+            // 🔹 Statistiques globales (non filtrées)
+            $totalCommandes = 0;
+            $totalCompleted = 0;
+            $totalPending = 0;
+
+            foreach ($grouped as $items) {
+                $totalCommandes++;
+
+                $allRecovered = $items->every(
+                    fn ($i) => $i->date_de_recuperation !== null
+                );
+
+                if ($allRecovered) {
+                    $totalCompleted++;
+                } else {
+                    $totalPending++;
+                }
             }
 
             return response()->json([
                 'success' => true,
-                'data' => $result,
-                'message' => 'Commandes du client affiché avec succès'
-            ],200);
+                'data' => array_values($result),
+                'external_data' => [
+                    'total_commandes' => $totalCommandes,
+                    'total_completed' => $totalCompleted,
+                    'total_pending' => $totalPending,
+                ],
+                'message' => 'Commandes du client affichées avec succès'
+            ], 200);
 
         } catch (\Exception $e) {
             return response()->json([
@@ -291,6 +352,7 @@ class CommandeController extends Controller
             ], 500);
         }
     }
+
 
 
     public function commandes_marchand(Request $request){
@@ -366,6 +428,10 @@ class CommandeController extends Controller
                     'id' => $commande->id,
                     'orderId' => $orderId,
                     'customerName' => $clientName,
+                    'merchantName' => $marchand->nom_marchand,
+                    'merchantName' => $marchand->nom_marchand,
+                    'merchant_image' => $marchand->image_marchand,
+                    'localite' => $marchand->commune->localite,
                     'status' => $commande->statut,
                     'createdAt' => $commande->created_at,
                     'commission' => $commission,

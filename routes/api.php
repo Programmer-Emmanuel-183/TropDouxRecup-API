@@ -22,6 +22,7 @@ use App\Http\Controllers\PanierController;
 use App\Http\Controllers\PlatController;
 use App\Http\Controllers\PubliciteController;
 use App\Http\Controllers\SuggestionController;
+use App\Http\Controllers\TimeController;
 use App\Http\Controllers\TransactionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -104,6 +105,9 @@ Route::get('/plat/{id}', [PlatController::class, 'plat']);
 //Liste des plats recommandés
 Route::get('/plats/recommandes', [PlatController::class, 'plat_recommande']);
 
+//Plat par categorie
+Route::get('/plat/categorie/{id_categorie}', [PlatController::class, 'plats_par_categorie']);
+
 //Afficher un marchand
 Route::get('/get/marchand/{id}', [MarchandController::class, 'marchand']);
 
@@ -125,15 +129,20 @@ Route::get('/localite/{id}', [LocaliteController::class, 'localite']);
 Route::middleware('auth:client')->group(function(){
     Route::post('/ajout/panier', [PanierController::class, 'ajout_panier']);
     Route::get('/panier', [PanierController::class, 'panier']);
-    Route::post('/delete/plat/panier/{id_item}', [PanierController::class, 'delete_plat']);
-    Route::post('/add/quantite/panier/{id_item}', [PanierController::class, 'add_quantite']);
-    Route::post('/baisse/quantite/panier/{id_item}', [PanierController::class, 'baisse_quantite']);
+    Route::post('/supprimer/plat/panier', [PanierController::class, 'delete_plat']);
+    Route::post('/add/quantite/panier', [PanierController::class, 'add_quantite']);
+    Route::post('/baisse/quantite/panier', [PanierController::class, 'baisse_quantite']);
 });
 
-//Commission
-Route::post('/update/commission', [CommissionController::class, 'commission_update']);
+Route::middleware('auth:admin')->group(function(){ //Commission
+    Route::post('/update/commission', [CommissionController::class, 'commission_update']);
+    Route::post('/update/commission/premium', [CommissionController::class, 'commission_update_premium']);
+    Route::post('/update/commission/entreprise', [CommissionController::class, 'commission_update_entreprise']);
+});
 //Afficher la commission
 Route::get('/commission', [CommissionController::class, 'commission']);
+Route::get('/commission/premium', [CommissionController::class, 'commission_premium']);
+Route::get('/commission/entreprise', [CommissionController::class, 'commission_entreprise']);
 
 //Commande
 Route::middleware('auth:client')->group(function(){
@@ -281,9 +290,17 @@ Route::middleware('auth:client')->group(function(){
 });
 
 //Suggestion des recherches
-Route::get('/suggestion', [SuggestionController::class, 'search']);
+Route::get('/suggestion', [SuggestionController::class, 'suggestions']);
+Route::get('/recherche', [SuggestionController::class, 'results']);
 
 //Paiement abonnement
 Route::post('/initialiser/paiement/{id_abonnement}', [PaiementAbonnementController::class, 'initialiser_paiement'])->middleware('auth:marchand');
 Route::get('/verifier/paiement/{depositId}', [PaiementAbonnementController::class, 'verifier_paiement']);
 Route::get('/callback/paiement', [PaiementAbonnementController::class, 'callback_pawapay']);
+
+//Afficher solde marchand
+Route::get('/solde/marchands', [MarchandController::class, 'afficher_solde_marchands'])->middleware('auth:admin');
+
+//Heure d’activation et desactivation
+Route::get('/time', [TimeController::class, 'time']);
+Route::post('/update/time', [TimeController::class, 'update_time'])->middleware('auth:admin');
