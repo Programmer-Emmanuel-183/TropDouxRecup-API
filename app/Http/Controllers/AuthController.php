@@ -191,13 +191,15 @@ class AuthController extends Controller
                     'id_abonnement' => $abonnement->id
                 ]);
                 $activation = ActivationCompte::first();
-                $message = "Un administrateur validera votre inscription.";
-                $token = "";
                 if($activation->activate == true){
                     $marchand->is_activate = true;
                     $marchand->save();
                     $message = "";
                     $token = $marchand->createToken('MarchandToken')->plainTextToken;
+                }
+                else{
+                    $message = "Un administrateur validera votre inscription.";
+                    $token = "";
                 }
                 
 

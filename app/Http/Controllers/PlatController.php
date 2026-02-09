@@ -22,9 +22,9 @@ class PlatController extends Controller
         $validator = Validator::make($request->all(), [
             'nom_plat' => 'required',
             'description_plat' => 'required',
-            'image_couverture' => 'required|image|mimes:jpeg,png,jpg|max:2048',
+            'image_couverture' => 'required|image|mimes:jpeg,png,jpg|max:5120',
             'autre_image' => 'nullable|array|max:3',
-            'autre_image.*' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'autre_image.*' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
             'prix_origine' => 'required|numeric|min:1',
             'prix_reduit' => 'required|numeric|lt:prix_origine|min:0',
             'quantite_plat' => 'required|integer|min:1',
@@ -49,7 +49,7 @@ class PlatController extends Controller
             if (!$user || $user->adresse_marchand === null) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Veuillez renseigner une adresse marchand valide.'
+                    'message' => 'Veuillez d abord enregistrer votre address de la localisation depuis les parametres afin de pouvoir ajouter vos plats.'
                 ], 400);
             }
 
@@ -487,7 +487,7 @@ class PlatController extends Controller
         $validator = Validator::make($request->all(), [
             'nom_plat' => 'required|string',
             'description_plat' => 'required|string',
-            'image_couverture' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'image_couverture' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
             'autre_image' => 'sometimes|array|max:3',
             'autre_image.*' => 'nullable',
             'prix_origine' => 'required|numeric|min:1',
