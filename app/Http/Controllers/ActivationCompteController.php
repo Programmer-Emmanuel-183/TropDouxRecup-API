@@ -86,6 +86,7 @@ class ActivationCompteController extends Controller
             
                 return response()->json([
                     'success' => true,
+                    'data' => $marchand->is_active ? 1 : 0,
                     'message' => 'Compte marchand desactivé avec succès'
                 ],200);
             }
@@ -98,6 +99,7 @@ class ActivationCompteController extends Controller
             
                 return response()->json([
                     'success' => true,
+                    'data' => $marchand->is_active ? 1 : 0,
                     'message' => 'Compte marchand activé avec succès'
                 ],200);
             }
