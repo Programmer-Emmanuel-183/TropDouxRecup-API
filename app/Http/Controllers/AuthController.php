@@ -72,7 +72,7 @@ class AuthController extends Controller
                         'email_marchand' => $request->email,
                         'tel_marchand' => $request->telephone,
                         'id_commune' => $request->id_localite,
-                        'image_marchand' => 'https://i.ibb.co/gLWG2Tpb/b9fc887826b3.png',
+                        'image_marchand' => 'https://i.ibb.co/PZbhq1vP/4fe331a79b1e.jpg',
                         'password_marchand' => Hash::make($request->password),
                         'code_otp' => $code_otp,
                         'otp_expire_at' => now()->addMinutes(10),

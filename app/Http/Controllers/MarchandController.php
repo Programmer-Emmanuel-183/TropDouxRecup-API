@@ -40,6 +40,7 @@ class MarchandController extends Controller
                     'data' => [
                         'id' => $marchand->id,
                         'nom_marchand' => $marchand->nom_marchand,
+                        'image' => $marchand->image_marchand,
                         'localite' => $marchand->commune->localite ?? null,
                         'plat_restant' => 0,
                         'pourcentage' => 0,
@@ -71,6 +72,7 @@ class MarchandController extends Controller
                 'data' => [
                     'id' => $marchand->id,
                     'nom_marchand' => $marchand->nom_marchand,
+                    'image' => $marchand->image_marchand,
                     'localite' => $marchand->commune->localite ?? null,
                     'plat_restant' => $plats->count(),
                     'pourcentage' => $pourcentageMoyen . "%",
