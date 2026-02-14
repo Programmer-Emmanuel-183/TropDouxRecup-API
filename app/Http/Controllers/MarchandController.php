@@ -225,7 +225,13 @@ class MarchandController extends Controller
                 return response()->json([
                     'success' => true,
                     'data' => [],
-                    'message' => 'Aucun plat disponible'
+                    'message' => 'Aucun plat disponible',
+                    'external_data' => [
+                        'current_page' => $plats->currentPage(),
+                        'total_page' => $plats->lastPage(),
+                        // 'limit' => $plats->perPage(),
+                        // 'total_items' => $plats->total(),
+                    ],
                 ], 200);
             }
 
