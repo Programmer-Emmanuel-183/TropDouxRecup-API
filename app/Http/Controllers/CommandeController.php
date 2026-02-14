@@ -339,8 +339,8 @@ class CommandeController extends Controller
                 'data' => array_values($result),
                 'external_data' => [
                     'total_commandes' => $totalCommandes,
-                    'total_completed' => $totalCompleted,
-                    'total_pending' => $totalPending,
+                    'total_recuperees' => $totalCompleted,
+                    'total_en_attente' => $totalPending,
                 ],
                 'message' => 'Commandes du client affichées avec succès'
             ], 200);

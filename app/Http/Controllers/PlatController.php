@@ -342,11 +342,12 @@ class PlatController extends Controller
                         'image_categorie' => $plat->categorie->image_categorie
                     ] : null,
                     'etoile' => $moyenne,
-                    'merchent' => [
-                        'id' => $plat->marchand->id,
+                    'merchant' => [
+                        'id_merchant' => $plat->marchand->id,
                         'localite' => $plat->marchand->commune->localite,
-                        'nom_merchent' => $plat->marchand->nom_marchand,
-                        'image_merchent' => $plat->marchand->image_marchand
+                        'nom_merchant' => $plat->marchand->nom_marchand,
+                        'image_merchant' => $plat->marchand->image_marchand,
+                        'location_link' => $plat->marchand->adresse_marchand
                     ]
                     // 'recommandation' => $recommandations
                 ]

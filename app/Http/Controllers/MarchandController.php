@@ -131,6 +131,11 @@ class MarchandController extends Controller
                     ->where('is_active', true)
                     ->get();
 
+                $plat_restant = Plat::where('id_marchand', $marchand->id)
+                    ->where('is_active', true)
+                    ->where('quantite_disponible', '!=', 0)
+                    ->count();
+
                 /**
                  * 🔥 Pourcentage moyen de réduction
                  */
@@ -162,6 +167,7 @@ class MarchandController extends Controller
                     'nom' => $marchand->nom_marchand,
                     'image' => $marchand->image_marchand,
                     'localite' => $marchand->commune->localite ?? null,
+                    'plat_restant' => $plat_restant,
                     'etoile_marchand' => $moyenneMarchand,
                     'pourcentage' => $pourcentage . '%',
                     'is_favorite' => $isFavorite,

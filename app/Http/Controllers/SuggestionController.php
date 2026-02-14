@@ -14,7 +14,7 @@ class SuggestionController extends Controller
     /**
      * 🔹 Suggestions pour l'autocomplete
      */
-    public function suggestions(Request $request)
+    public function results(Request $request)
     {
         try {
             $search = $request->query('search');
@@ -48,10 +48,10 @@ class SuggestionController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => [
-                    'plat' => $plats,
-                    'marchand' => $marchands,
-                ],
+                'data' => array_merge(
+                    $plats->toArray(),
+                    $marchands->toArray()
+                ),
                 'message' => 'Suggestions récupérées avec succès',
             ], 200);
 
@@ -67,7 +67,7 @@ class SuggestionController extends Controller
     /**
      * 🔹 Résultats complets de recherche
      */
-    public function results(Request $request)
+    public function suggestions(Request $request)
     {
         try {
             $user = $request->user(); // client connecté ou null

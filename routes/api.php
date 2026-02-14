@@ -268,7 +268,7 @@ Route::middleware('auth:admin')->group(function(){
 Route::post('/ajout/avis/{id_plat}', [AvisController::class, 'ajout_avis'])->middleware('auth:client');
 Route::post('/delete/avis/{id}', [AvisController::class, 'delete_avis'])->middleware('auth:admin');
 Route::get('/avis', [AvisController::class, 'avis'])->middleware('auth:admin');
-Route::get('/avis/marchand', [AvisController::class, 'avis_marchand'])->middleware('auth:marchand');
+Route::get('/avis/marchand', [AvisController::class, 'avis_marchand'])->middleware(['auth:marchand', 'marchand.active']);
 Route::get('/avis/page', [AvisController::class, 'avis_page']);
 
 //Publicites
@@ -294,7 +294,7 @@ Route::get('/suggestion', [SuggestionController::class, 'suggestions']);
 Route::get('/recherche', [SuggestionController::class, 'results']);
 
 //Paiement abonnement
-Route::post('/initialiser/paiement/{id_abonnement}', [PaiementAbonnementController::class, 'initialiser_paiement'])->middleware('auth:marchand');
+Route::post('/initialiser/paiement/{id_abonnement}', [PaiementAbonnementController::class, 'initialiser_paiement'])->middleware(['auth:marchand', 'marchand.active']);
 Route::get('/verifier/paiement/{depositId}', [PaiementAbonnementController::class, 'verifier_paiement']);
 Route::get('/callback/paiement', [PaiementAbonnementController::class, 'callback_pawapay']);
 
