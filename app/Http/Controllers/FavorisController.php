@@ -116,96 +116,105 @@ class FavorisController extends Controller
         }
     }
 
-    public function plats_favoris(Request $request){
-        try{
+    public function favoris(Request $request){
+        try {
+
             $user = $request->user();
+
             $client = User::find($user->id);
-            if(!$client){
+
+            if (!$client) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Client introuvable'
-                ],404);
+                ], 404);
             }
 
-            $favoris_plats = FavorisPlat::where('id_client', $client->id)->orderBy('created_at', 'desc')->get();
-            if($favoris_plats->isEmpty()){
+            // type par défaut = plat
+            $type = $request->query('type', 'plat');
+
+            /*
+            |--------------------------------------------------------------------------
+            | FAVORIS MARCHANDS
+            |--------------------------------------------------------------------------
+            */
+            if ($type === 'merchant') {
+
+                $favoris = FavorisMarchand::with([
+                        'marchand.commune'
+                    ])
+                    ->where('id_client', $client->id)
+                    ->orderBy('created_at', 'desc')
+                    ->get();
+
+                if ($favoris->isEmpty()) {
+                    return response()->json([
+                        'success' => true,
+                        'data' => [],
+                        'message' => 'Aucun marchand mis en favoris'
+                    ], 200);
+                }
+
+                $data = $favoris->map(function ($fav) {
+                    return [
+                        'id' => $fav->marchand->id,
+                        'image' => $fav->marchand->image_marchand,
+                        'nom' => $fav->marchand->nom_marchand,
+                        'localite' => $fav->marchand->commune->localite ?? null,
+                    ];
+                });
+
+                return response()->json([
+                    'success' => true,
+                    'data' => $data,
+                    'message' => 'Liste des marchands favoris récupérée'
+                ]);
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | FAVORIS PLATS (DEFAULT)
+            |--------------------------------------------------------------------------
+            */
+            $favoris = FavorisPlat::with([
+                    'plat.marchand'
+                ])
+                ->where('id_client', $client->id)
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            if ($favoris->isEmpty()) {
                 return response()->json([
                     'success' => true,
                     'data' => [],
-                    'message' => 'Aucun plats mis en favoris'
-                ],200);
+                    'message' => 'Aucun plat mis en favoris'
+                ], 200);
             }
 
-            $data = $favoris_plats->map(function($favoris_plat){
+            $data = $favoris->map(function ($fav) {
                 return [
-                    'id' => $favoris_plat->plat->id,
-                    'image' => $favoris_plat->plat->image_couverture,
-                    'prix' => $favoris_plat->plat->prix_reduit,
-                    'nom_marchand' => $favoris_plat->plat->marchand->nom_marchand 
+                    'id' => $fav->plat->id,
+                    'image' => $fav->plat->image_couverture,
+                    'nom_plat' => $fav->plat->nom_plat,
+                    'prix' => $fav->plat->prix_reduit,
+                    'old_prix' => $fav->plat->prix_origine,
+                    'nom_marchand' => $fav->plat->marchand->nom_marchand ?? null,
                 ];
             });
 
             return response()->json([
                 'success' => true,
                 'data' => $data,
-                'message' => 'Liste des plats mis en favoris affichés avec succès'
-            ],200);
+                'message' => 'Liste des plats favoris récupérée'
+            ]);
 
+        } catch (QueryException $e) {
 
-        }
-        catch(QueryException $e){
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de l’affichage des plats en favoris',
+                'message' => 'Erreur lors de la récupération des favoris',
                 'erreur' => $e->getMessage()
-            ],500);
-        }
-    }
-
-
-    public function marchands_favoris(Request $request){
-        try{
-            $user = $request->user();
-            $client = User::find($user->id);
-            if(!$client){
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Client introuvable'
-                ],404);
-            }
-
-            $favoris_marchands = FavorisMarchand::where('id_client', $client->id)->orderBy('created_at', 'desc')->get();
-            if($favoris_marchands->isEmpty()){
-                return response()->json([
-                    'success' => true,
-                    'data' => [],
-                    'message' => 'Aucun marchands mis en favoris'
-                ],200);
-            }
-
-            $data = $favoris_marchands->map(function($favoris_marchand){
-                return [
-                    'id' => $favoris_marchand->marchand->id,
-                    'image' => $favoris_marchand->marchand->image_marchand,
-                    'nom' => $favoris_marchand->marchand->nom_marchand,
-                    'localite' => $favoris_marchand->marchand->commune->localite,
-                ];
-            });
-
-            return response()->json([
-                'success' => true,
-                'data' => $data,
-                'message' => 'Liste des marchands mis en favoris affichés avec succès'
-            ],200);
-
-
-        }
-        catch(QueryException $e){
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors de l’affichage des marchands en favoris',
-                'erreur' => $e->getMessage()
-            ],500);
+            ], 500);
         }
     }
 

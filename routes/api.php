@@ -285,8 +285,7 @@ Route::get('/liste/publicites', [PubliciteController::class, 'liste_paginate_pub
 Route::middleware('auth:client')->group(function(){
     Route::post('/ajout/plat/favoris', [FavorisController::class, 'ajout_plat_favoris']);
     Route::post('/ajout/marchand/favoris', [FavorisController::class, 'ajout_marchand_favoris']);
-    Route::get('/plats/favoris', [FavorisController::class, 'plats_favoris']);
-    Route::get('/marchands/favoris', [FavorisController::class, 'marchands_favoris']);
+    Route::get('/favoris', [FavorisController::class, 'favoris']);
 });
 
 //Suggestion des recherches
