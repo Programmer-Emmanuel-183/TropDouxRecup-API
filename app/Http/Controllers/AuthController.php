@@ -236,7 +236,7 @@ class AuthController extends Controller
         } catch (QueryException $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => 'Erreur serveur lors de la vérification',
                 'error' => $e->getMessage()
             ], 500);
         }
