@@ -246,6 +246,10 @@ class PlatController extends Controller
                     'success' => true,
                     'data' => [],
                     'message' => 'Aucun plat trouvé',
+                    'external_data' => [
+                        'current_page' => $plats->currentPage(),
+                        'total_page' => $plats->lastPage(),
+                    ],
                 ], 200);
             }
 
@@ -377,7 +381,13 @@ class PlatController extends Controller
                 return response()->json([
                     'success' => true,
                     'data' => [],
-                    'message' => 'Aucune drecommandations'
+                    'message' => 'Aucune drecommandations',
+                    'external_data' => [
+                        'current_page' => $plats->currentPage(),
+                        'total_page' => $plats->lastPage(),
+                        // 'limit' => $plats->perPage(),
+                        // 'total_items' => $plats->total(),
+                    ],
                 ],200);
             }
 

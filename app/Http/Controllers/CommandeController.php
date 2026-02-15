@@ -376,7 +376,12 @@ class CommandeController extends Controller
                 return response()->json([
                     'success' => true,
                     'data' => [],
-                    'message' => 'Aucune commande trouvée.'
+                    'message' => 'Aucune commande trouvée.',
+                    'external_data' => [
+                        'total_commandes' => 0,
+                        'total_recuperees' => 0,
+                        'total_en_attente' => 0
+                    ],
                 ], 200);
             }
 

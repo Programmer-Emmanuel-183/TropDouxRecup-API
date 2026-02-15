@@ -111,6 +111,12 @@ class MarchandController extends Controller
                     'success' => true,
                     'data' => [],
                     'message' => 'Aucun marchand trouvé',
+                    'external_data' => [
+                        'current_page' => $marchands->currentPage(),
+                        'total_page' => $marchands->lastPage(),
+                        // 'per_page' => $marchands->perPage(),
+                        // 'total_items' => $marchands->total(),
+                    ],
                 ], 200);
             }
 
