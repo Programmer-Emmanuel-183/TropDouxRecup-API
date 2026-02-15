@@ -39,11 +39,11 @@ class MarchandController extends Controller
                     'success' => true,
                     'data' => [
                         'id' => $marchand->id,
-                        'nom_marchand' => $marchand->nom_marchand,
+                        'nom' => $marchand->nom_marchand,
                         'image' => $marchand->image_marchand,
                         'localite' => $marchand->commune->localite ?? null,
                         'plat_restant' => 0,
-                        'pourcentage' => 0,
+                        'pourcentage' => 0 . "%",
                         'etoile_marchand' => 0,
                         // 'plats_dispo' => []
                     ],
@@ -62,7 +62,7 @@ class MarchandController extends Controller
                     'quantite_disponible' => $plat->quantite_disponible,
                     'prix_origine' => $plat->prix_origine,
                     'prix_reduit' => $plat->prix_reduit,
-                    'reduction_percent' => $pourcentage
+                    'reduction_percent' => $pourcentage . "%"
                 ];
             });
 
@@ -71,7 +71,7 @@ class MarchandController extends Controller
                 'success' => true,
                 'data' => [
                     'id' => $marchand->id,
-                    'nom_marchand' => $marchand->nom_marchand,
+                    'nom' => $marchand->nom_marchand,
                     'image' => $marchand->image_marchand,
                     'localite' => $marchand->commune->localite ?? null,
                     'plat_restant' => $plats->count(),
