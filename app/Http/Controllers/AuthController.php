@@ -193,7 +193,7 @@ class AuthController extends Controller
                 ]);
                 $activation = ActivationCompte::first();
                 if($activation->activate == true){
-                    $marchand->is_activate = true;
+                    $marchand->is_active = true;
                     $marchand->save();
                     $message = "";
                     $token = $marchand->createToken('MarchandToken')->plainTextToken;
@@ -222,7 +222,7 @@ class AuthController extends Controller
                         'abonnement' => $abonnement->type_abonnement,
                         'image_profil' => $marchand->image_marchand,
                         'device_token' => $marchand->device_token,
-                        'is_active' => $marchand->is_active,
+                        'is_active' => $marchand->is_active === false ? 0 : 1,
                         'token' => $token
                     ],
                 ], 200);
@@ -236,7 +236,7 @@ class AuthController extends Controller
         } catch (QueryException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur serveur lors de la vérification',
+                'message' => $e->getMessage(),
                 'error' => $e->getMessage()
             ], 500);
         }
@@ -313,14 +313,14 @@ class AuthController extends Controller
                     return response()->json([
                         'success' => false,
                         'message' => 'Votre compte est desactivé'
-                    ], 401);
+                    ], 403);
                 }
 
                 if (!$marchand->is_verify) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Votre compte n’a pas encore été vérifié'
-                    ], 401);
+                    ], 409);
                 }
 
                 $token = $marchand->createToken('MarchandToken')->plainTextToken;
@@ -365,7 +365,7 @@ class AuthController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Identifiants incorrects',
-            ], 401);
+            ], 400);
 
         } catch (QueryException $e) {
             return response()->json([
@@ -438,6 +438,7 @@ class AuthController extends Controller
                     'image_profil' => $client->image_client,
                     'role' => 'client',
                     'device_token' => $client->device_token,
+                    'created_at' => $client->created_at
                 ],
                 'message' => 'Information du profil affichée avec succès'
             ],200);
@@ -693,7 +694,7 @@ class AuthController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Mot de passe incorrect'
-                ], 401);
+                ], 400);
             }
 
             // Sécurité rôle

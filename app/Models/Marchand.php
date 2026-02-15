@@ -23,7 +23,7 @@ class Marchand extends Authenticatable
         'code_otp',
         'otp_expire_at',
         'is_verify',
-        'is_activate',
+        'is_active',
         'image_marchand',
         'id_abonnement',
         'date_abonnement',
@@ -34,6 +34,8 @@ class Marchand extends Authenticatable
 
     protected $casts = [
         'fin_abonnement' => 'datetime',
+        'is_verify' => 'boolean',
+        'is_active' => 'boolean',
     ];
 
 

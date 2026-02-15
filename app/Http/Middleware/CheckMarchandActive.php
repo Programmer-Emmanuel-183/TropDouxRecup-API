@@ -16,7 +16,7 @@ class CheckMarchandActive
             return response()->json([
                 'success' => false,
                 'message' => 'Votre compte est désactivé'
-            ], 401);
+            ], 403);
         }
 
         return $next($request);
