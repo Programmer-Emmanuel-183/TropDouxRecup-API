@@ -11,11 +11,24 @@ use Doctrine\DBAL\Query\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Validator;
 
 class PaiementAbonnementController extends Controller
 {
-    public function initialiser_paiement(Request $request, $id_abonnement)
+    public function initialiser_paiement(Request $request)
     {
+
+        $validator = Validator::make($request->all(), [
+            'id_abonnement' => 'required'
+        ]);
+        if($validator->fails()){
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first()
+            ],422);
+        }
+
+        $id_abonnement = $request->id_abonnement;
         try {
             $abonnement = Abonnement::find($id_abonnement);
             if (!$abonnement) {

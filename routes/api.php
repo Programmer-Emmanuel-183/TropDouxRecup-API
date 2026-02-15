@@ -293,7 +293,7 @@ Route::get('/suggestion', [SuggestionController::class, 'suggestions']);
 Route::get('/recherche', [SuggestionController::class, 'results']);
 
 //Paiement abonnement
-Route::post('/initialiser/paiement/{id_abonnement}', [PaiementAbonnementController::class, 'initialiser_paiement'])->middleware(['auth:marchand', 'marchand.active']);
+Route::post('/initialiser/paiement', [PaiementAbonnementController::class, 'initialiser_paiement'])->middleware(['auth:marchand', 'marchand.active']);
 Route::get('/verifier/paiement/{depositId}', [PaiementAbonnementController::class, 'verifier_paiement']);
 Route::get('/callback/paiement', [PaiementAbonnementController::class, 'callback_pawapay']);
 
