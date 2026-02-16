@@ -296,6 +296,7 @@ Route::get('/recherche', [SuggestionController::class, 'results']);
 Route::post('/initialiser/paiement', [PaiementAbonnementController::class, 'initialiser_paiement'])->middleware(['auth:marchand', 'marchand.active']);
 Route::get('/verifier/paiement/{depositId}', [PaiementAbonnementController::class, 'verifier_paiement']);
 Route::get('/callback/paiement', [PaiementAbonnementController::class, 'callback_pawapay']);
+Route::get('/payment/callback', [PaiementAbonnementController::class, 'callback']);
 
 //Afficher solde marchand
 Route::get('/solde/marchands', [MarchandController::class, 'afficher_solde_marchands'])->middleware('auth:admin');

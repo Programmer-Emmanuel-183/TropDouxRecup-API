@@ -392,6 +392,13 @@ class PaiementAbonnementController extends Controller
         ], 200);
     }
 
+    public function callback(Request $request){
+        $payid = $request->query('depositId');
+
+        return redirect("tropdouxrecup://merchant/subscription/CheckSubscribtionPayment?depositId=$payid");
+    }
+
+
 
     public function callback_pawapay(Request $request){
         $depositId = $request->input('depositId');
