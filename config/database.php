@@ -85,7 +85,7 @@ return [
 
         'pgsql' => [
             'driver' => 'pgsql',
-            'url' => "postgres://avnadmin:AVNS_vJtBASiWjc04IhyxGCq@pg-33896082-tropdouxrecup.k.aivencloud.com:18787/defaultdb?sslmode=require",
+            'url' => env('DB_URL', ''),
             'host' => env('DB_HOST', '127.0.0.1'),
             'port' => env('DB_PORT', '5432'),
             'database' => env('DB_DATABASE', 'laravel'),
