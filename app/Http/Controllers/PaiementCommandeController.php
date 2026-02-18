@@ -225,8 +225,8 @@ class PaiementCommandeController extends Controller
             $client = $commande->client;
 
             // 🔥 Détermination commission selon abonnement
-            $commissionType = 'Commission';
-            if ($client && $client->abonnement) {
+            $commissionType = 'Commission'; // défaut pour débutant
+            if ($client->abonnement) {
                 switch ($client->abonnement->type_abonnement) {
                     case 'premium':
                         $commissionType = 'CommissionPremium';
@@ -237,8 +237,7 @@ class PaiementCommandeController extends Controller
                 }
             }
 
-            $commissionModel = app("App\\Models\\{$commissionType}");
-            $commissionValue = $commissionModel::first()?->pourcentage ?? 0;
+            $commissionValue = $commissionType::first();
 
             $admin = Admin::where('role', 2)->first();
 
