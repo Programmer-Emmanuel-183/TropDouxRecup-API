@@ -94,7 +94,7 @@ class PaiementCommandeController extends Controller
                 $sous->quantite_plat = $panier->quantite;
                 $sous->statut = 'pending';
                 $sous->commission = 0; // calculé plus tard si nécessaire
-                $sous->code_commande = "CMD-" . strtoupper(substr($commande->id, 0, 6));
+                $sous->code_commande = "TDR-" . strtoupper(substr($commande->id, 0, 6));
                 $sous->code_qr = 'data:image/svg+xml;base64,' . base64_encode(QrCode::format('svg')->size(200)->generate($sous->code_commande));
                 $sous->save();
 
