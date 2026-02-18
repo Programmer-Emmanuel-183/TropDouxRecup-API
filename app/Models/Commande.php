@@ -24,4 +24,19 @@ class Commande extends Model
     protected $fillable = [
         'statut',
     ];
+
+    public function sousCommandes(){
+        return $this->hasMany(SousCommande::class, 'id_commande', 'id');
+    }
+
+    public function client()
+    {
+        return $this->belongsTo(User::class, 'id_client');
+    }
+
+    public function marchand()
+    {
+        return $this->belongsTo(Marchand::class, 'id_marchand');
+    }
+
 }

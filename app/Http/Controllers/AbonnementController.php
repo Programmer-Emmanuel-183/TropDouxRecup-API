@@ -77,19 +77,27 @@ class AbonnementController extends Controller
         try {
             // 🔹 Récupérer les abonnements avec le nombre d'utilisations
             $abonnements = Abonnement::select(
-                    'abonnements.id',
-                    'type_abonnement',
-                    'description',
-                    'montant',
-                    'duree',
-                    'icon_url',
-                    'icon_bg_color',
-                    'created_at'
-                )
-                ->withCount('marchands') // relation obligatoire
-                ->with(['avantages:id,nom_avantage,value'])
-                ->orderByRaw("FIELD(type_abonnement, 'debutant', 'premium', 'entreprise')")
-                ->get();
+                'abonnements.id',
+                'type_abonnement',
+                'description',
+                'montant',
+                'duree',
+                'icon_url',
+                'icon_bg_color',
+                'created_at'
+            )
+            ->withCount('marchands')
+            ->with(['avantages:id,nom_avantage,value'])
+            ->orderByRaw("
+                CASE type_abonnement
+                    WHEN 'debutant' THEN 1
+                    WHEN 'premium' THEN 2
+                    WHEN 'entreprise' THEN 3
+                    ELSE 4
+                END
+            ")
+            ->get();
+
 
             // 🔹 Trouver le max d'utilisation
             $maxUsage = $abonnements->max('marchands_count');

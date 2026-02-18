@@ -18,6 +18,7 @@ use App\Http\Controllers\LocaliteController;
 use App\Http\Controllers\MarchandController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PaiementAbonnementController;
+use App\Http\Controllers\PaiementCommandeController;
 use App\Http\Controllers\PanierController;
 use App\Http\Controllers\PlatController;
 use App\Http\Controllers\PubliciteController;
@@ -146,7 +147,7 @@ Route::get('/commission/entreprise', [CommissionController::class, 'commission_e
 
 //Commande
 Route::middleware('auth:client')->group(function(){
-    Route::post('/passer/commande', [CommandeController::class, 'passer_commande']);
+    // Route::post('/passer/commande', [CommandeController::class, 'passer_commande']);
     Route::get('/commandes/client', [CommandeController::class, 'commandes_client']);
     Route::get('/commande/{id}', [CommandeController::class, 'commande']);
 });
@@ -296,7 +297,6 @@ Route::get('/recherche', [SuggestionController::class, 'results']);
 Route::post('/initialiser/paiement', [PaiementAbonnementController::class, 'initialiser_paiement'])->middleware(['auth:marchand', 'marchand.active']);
 Route::get('/verifier/paiement/{depositId}', [PaiementAbonnementController::class, 'verifier_paiement']);
 Route::get('/callback/paiement', [PaiementAbonnementController::class, 'callback_pawapay']);
-Route::get('/payment/callback', [PaiementAbonnementController::class, 'callback']);
 
 //Afficher solde marchand
 Route::get('/solde/marchands', [MarchandController::class, 'afficher_solde_marchands'])->middleware('auth:admin');
@@ -304,3 +304,8 @@ Route::get('/solde/marchands', [MarchandController::class, 'afficher_solde_march
 //Heure d’activation et desactivation
 Route::get('/time', [TimeController::class, 'time']);
 Route::post('/update/time', [TimeController::class, 'update_time'])->middleware('auth:admin');
+
+
+Route::post('/paiement/commande', [PaiementCommandeController::class, 'initialiser_paiement'])->middleware('auth:client');
+Route::get('/verifier/paiement/commande/{depositId}', [PaiementCommandeController::class, 'verifier_paiement']);
+Route::get('/callback/paiement/commande', [PaiementAbonnementController::class, 'callback_pawapay']);
