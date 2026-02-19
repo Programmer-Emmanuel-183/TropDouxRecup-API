@@ -45,11 +45,18 @@ class PlatController extends Controller
                 return response()->json(['success' => false, 'message' => 'Categorie non trouvée'], 404);
             }
 
+            if ($request->is_active && $this->isTimeBlocked()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Impossible d’ajouter un plat durant cet intervalle.'
+                ], 403);
+            }
+
             $user = $request->user();
             if (!$user || $user->adresse_marchand === null) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Veuillez d abord enregistrer votre address de la localisation depuis les parametres afin de pouvoir ajouter vos plats.'
+                    'message' => 'Veuillez d’abord enregistrer votre addresse de localisation depuis les parametres afin de pouvoir ajouter vos plats.'
                 ], 400);
             }
 

@@ -431,7 +431,7 @@ class CommandeController extends Controller
 
                 $result[] = [
                     'id' => $commande->id,
-                    'orderId' => $orderId,
+                    'orderId' => strtoupper(substr(str_replace('-', '', $commande->id), -8)),
                     'customerName' => $clientName,
                     'merchantName' => $marchand->nom_marchand,
                     'merchantName' => $marchand->nom_marchand,
@@ -571,8 +571,23 @@ class CommandeController extends Controller
                 ->exists();
 
             if (!$alreadyCredited) {
+
+                $commissionType = 'Commission'; // défaut pour débutant
+                if ($client->abonnement) {
+                    switch ($client->abonnement->type_abonnement) {
+                        case 'premium':
+                            $commissionType = 'CommissionPremium';
+                            break;
+                        case 'entreprise':
+                            $commissionType = 'CommissionEntreprise';
+                            break;
+                    }
+                }
+
+                $commissionValue = $commissionType::first();
+
                 $transaction = new Transaction();
-                $transaction->amount = $totalPrice;
+                $transaction->amount = $totalPrice - ($totalPrice * $commissionValue) / 100;
                 $transaction->type = 'credit';
                 $transaction->libelle = "Commande #{$codeCommande}";
                 $transaction->id_user = $marchand->id;

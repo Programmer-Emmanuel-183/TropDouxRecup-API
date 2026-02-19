@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Admin;
 use App\Models\Commande;
+use App\Models\Commission;
+use App\Models\CommissionEntreprise;
+use App\Models\CommissionPremium;
 use App\Models\PaiementCommande;
 use App\Models\Panier;
 use App\Models\Plat;
@@ -187,11 +190,11 @@ class PaiementCommandeController extends Controller
      */
     public function verifier_paiement(Request $request, $depositId){
         $paiement = PaiementCommande::find($depositId);
+
         if (!$paiement) {
             return response()->json(['success' => false, 'message' => 'Paiement introuvable'], 404);
         }
 
-        // 🔹 Éviter doublon
         if ($paiement->statut === 'completed') {
             return response()->json(['success' => true, 'message' => 'Paiement déjà vérifié'], 200);
         }
@@ -213,46 +216,79 @@ class PaiementCommandeController extends Controller
 
         DB::transaction(function () use ($paiement, $result) {
 
-            $paiement->update(['statut' => 'completed', 'data' => $result]);
+            $paiement->update([
+                'statut' => 'completed',
+                'data' => $result
+            ]);
 
-            $commande = Commande::with(['sousCommandes.plat.marchand', 'client.abonnement'])
-                ->find($paiement->id_commande);
+            $commande = Commande::with([
+                'sousCommandes.plat.marchand.abonnement',
+                'client'
+            ])->find($paiement->id_commande);
 
             if (!$commande) return;
 
             $commande->update(['statut' => 'pending']);
 
-            $client = $commande->client;
-
-            // 🔥 Détermination commission selon abonnement
-            $commissionType = 'Commission'; // défaut pour débutant
-            if ($client->abonnement) {
-                switch ($client->abonnement->type_abonnement) {
-                    case 'premium':
-                        $commissionType = 'CommissionPremium';
-                        break;
-                    case 'entreprise':
-                        $commissionType = 'CommissionEntreprise';
-                        break;
-                }
-            }
-
-            $commissionValue = $commissionType::first();
-
             $admin = Admin::where('role', 2)->first();
 
-            foreach ($commande->sousCommandes as $sc) {
+            // 🔥 TOTAL COMMANDE
+            $totalCommande = $commande->sousCommandes->sum(function ($sc) {
+                return ($sc->plat->prix_reduit ?? 0) * $sc->quantite_plat;
+            });
 
-                $plat = $sc->plat;
-                $marchand = $plat?->marchand;
+            if ($totalCommande <= 0) return;
 
-                if (!$plat || !$marchand) continue;
+            // 🔥 Grouper par marchand
+            $groupedByMarchand = $commande->sousCommandes->groupBy(function ($sc) {
+                return $sc->plat?->marchand?->id;
+            });
 
-                $montantTotal = $plat->prix_reduit * $sc->quantite_plat;
-                $commissionAdmin = ($montantTotal * $commissionValue) / 100;
-                $partMarchand = $montantTotal - $commissionAdmin;
+            foreach ($groupedByMarchand as $marchandId => $sousCommandes) {
 
+                if (!$marchandId) continue;
+
+                $marchand = $sousCommandes->first()->plat->marchand;
+
+                if (!$marchand) continue;
+
+                // 🔥 Détermination commission selon abonnement DU MARCHAND
+                $commissionPercent = 0;
+
+                if ($marchand->abonnement) {
+                    switch ($marchand->abonnement->type_abonnement) {
+                        case 'premium':
+                            $commissionPercent = CommissionPremium::first()?->pourcentage ?? 0;
+                            break;
+
+                        case 'entreprise':
+                            $commissionPercent = CommissionEntreprise::first()?->pourcentage ?? 0;
+                            break;
+
+                        default:
+                            $commissionPercent = Commission::first()?->pourcentage ?? 0;
+                    }
+                } else {
+                    $commissionPercent = Commission::first()?->pourcentage ?? 0;
+                }
+
+                // 🔥 Total pour CE marchand
+                $totalMarchand = $sousCommandes->sum(function ($sc) {
+                    return ($sc->plat->prix_reduit ?? 0) * $sc->quantite_plat;
+                });
+
+                $commissionAdmin = ($totalMarchand * $commissionPercent) / 100;
+                $partMarchand = $totalMarchand - $commissionAdmin;
+
+                // 🔥 Incrément solde marchand
                 $marchand->increment('solde_marchand', $partMarchand);
+
+                // 🔥 Stocker commission sur sous_commandes
+                foreach ($sousCommandes as $sc) {
+                    $sc->update([
+                        'commission' => $commissionPercent
+                    ]);
+                }
 
                 if ($admin) {
                     $admin->increment('solde', $commissionAdmin);
@@ -260,9 +296,7 @@ class PaiementCommandeController extends Controller
             }
         });
 
-        $commande = Commande::with(['sousCommandes.plat'])
-            ->find($paiement->id_commande);
-
+        $commande = Commande::with(['sousCommandes.plat'])->find($paiement->id_commande);
         $client = $paiement->client;
 
         if ($client && $client->device_token) {
@@ -273,47 +307,25 @@ class PaiementCommandeController extends Controller
                 'role' => 'client',
                 'id_user' => $client->id
             ]);
+
             app(PushNotifController::class)->sendPush($notif);
         }
 
         return response()->json([
             'success' => true,
-            'message' => 'Paiement vérifié avec succès',
-            'data' => [
-                'id' => $paiement->id,
-                'statut' => $paiement->statut,
-                'prix' => $paiement->prix,
-                'commande' => [
-                    'id' => $commande->id,
-                    'orderId' => $commande->sousCommandes->first()?->code_commande ?? null,
-                    'status' => $commande->statut,
-                    'createdAt' => $commande->created_at,
-                    'totalPriceOrder' => $paiement->prix,
-                    'dishes' => $commande->sousCommandes->map(function ($sc) {
-                        return [
-                            'id' => $sc->id_plat,
-                            'name' => $sc->plat->nom_plat ?? '',
-                            'quantity' => $sc->quantite_plat,
-                            'unit_price' => $sc->plat->prix_reduit ?? 0,
-                            'code_qr' => $sc->code_qr
-                        ];
-                    })
-                ]
-            ]
+            'message' => 'Paiement vérifié avec succès'
         ], 200);
     }
 
-
-    /**
-     * Callback Pawapay pour le paiement des commandes
-     */
     public function callback_pawapay(Request $request){
         $depositId = $request->input('depositId');
+
         if (!$depositId) {
             return response()->json(['success' => false, 'message' => 'depositId manquant'], 400);
         }
 
         $paiement = PaiementCommande::find($depositId);
+
         if (!$paiement) {
             return response()->json(['success' => false, 'message' => 'Paiement introuvable'], 404);
         }
@@ -338,53 +350,70 @@ class PaiementCommandeController extends Controller
         if ($amount !== (int)$paiement->prix) {
             return response()->json([
                 'success' => false,
-                'message' => 'Montant incohérent',
-                'details' => ['attendu' => $paiement->prix, 'recu' => $amount]
+                'message' => 'Montant incohérent'
             ], 422);
         }
 
         DB::transaction(function () use ($paiement, $request) {
 
-            $paiement->update(['statut' => 'completed', 'data' => $request->all()]);
+            $paiement->update([
+                'statut' => 'completed',
+                'data' => $request->all()
+            ]);
 
-            $commande = Commande::with(['sousCommandes.plat.marchand', 'client.abonnement'])
-                ->find($paiement->id_commande);
+            $commande = Commande::with([
+                'sousCommandes.plat.marchand.abonnement'
+            ])->find($paiement->id_commande);
 
             if (!$commande) return;
 
             $commande->update(['statut' => 'pending']);
 
-            $client = $commande->client;
-
-            $commissionType = 'Commission';
-            if ($client && $client->abonnement) {
-                switch ($client->abonnement->type_abonnement) {
-                    case 'premium':
-                        $commissionType = 'CommissionPremium';
-                        break;
-                    case 'entreprise':
-                        $commissionType = 'CommissionEntreprise';
-                        break;
-                }
-            }
-
-            $commissionModel = app("App\\Models\\{$commissionType}");
-            $commissionValue = $commissionModel::first()?->pourcentage ?? 0;
-
             $admin = Admin::where('role', 2)->first();
 
-            foreach ($commande->sousCommandes as $sc) {
+            $groupedByMarchand = $commande->sousCommandes->groupBy(function ($sc) {
+                return $sc->plat?->marchand?->id;
+            });
 
-                $plat = $sc->plat;
-                $marchand = $plat?->marchand;
+            foreach ($groupedByMarchand as $marchandId => $sousCommandes) {
 
-                if (!$plat || !$marchand) continue;
+                if (!$marchandId) continue;
 
-                $montantTotal = $plat->prix_reduit * $sc->quantite_plat;
-                $commissionAdmin = ($montantTotal * $commissionValue) / 100;
-                $partMarchand = $montantTotal - $commissionAdmin;
+                $marchand = $sousCommandes->first()->plat->marchand;
+
+                $commissionPercent = 0;
+
+                if ($marchand->abonnement) {
+                    switch ($marchand->abonnement->type_abonnement) {
+                        case 'premium':
+                            $commissionPercent = CommissionPremium::first()?->pourcentage ?? 0;
+                            break;
+
+                        case 'entreprise':
+                            $commissionPercent = CommissionEntreprise::first()?->pourcentage ?? 0;
+                            break;
+
+                        default:
+                            $commissionPercent = Commission::first()?->pourcentage ?? 0;
+                    }
+                } else {
+                    $commissionPercent = Commission::first()?->pourcentage ?? 0;
+                }
+
+                $totalMarchand = $sousCommandes->sum(function ($sc) {
+                    return ($sc->plat->prix_reduit ?? 0) * $sc->quantite_plat;
+                });
+
+                $commissionAdmin = ($totalMarchand * $commissionPercent) / 100;
+                $partMarchand = $totalMarchand - $commissionAdmin;
 
                 $marchand->increment('solde_marchand', $partMarchand);
+
+                foreach ($sousCommandes as $sc) {
+                    $sc->update([
+                        'commission' => $commissionPercent
+                    ]);
+                }
 
                 if ($admin) {
                     $admin->increment('solde', $commissionAdmin);
@@ -392,7 +421,13 @@ class PaiementCommandeController extends Controller
             }
         });
 
-        return response()->json(['success' => true, 'message' => 'Callback traité avec succès'], 200);
+        return response()->json([
+            'success' => true,
+            'message' => 'Callback traité avec succès'
+        ], 200);
     }
+
+
+
 
 }

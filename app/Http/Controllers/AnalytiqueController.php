@@ -12,7 +12,7 @@ class AnalytiqueController extends Controller
 {
     public function analytique_marchand(Request $request){
         try {
-            $marchand = $request->user(); // auth marchand
+            $marchand = $request->user(); // marchand connecté
             $marchandId = $marchand->id;
 
             $now = Carbon::now();
@@ -20,13 +20,26 @@ class AnalytiqueController extends Controller
             $endMonth   = $now->copy()->endOfMonth();
 
             /** ===============================
-             *  REVENUS DU MOIS
+             *  REVENUS DU MOIS (APRÈS COMMISSION)
              * =============================== */
-            $revenuMois = DB::table('sous_commandes')
+            // On récupère toutes les commandes du marchand ce mois
+            $commandes = DB::table('sous_commandes')
                 ->join('plats', 'plats.id', '=', 'sous_commandes.id_plat')
                 ->where('sous_commandes.id_marchand', $marchandId)
                 ->whereBetween('sous_commandes.created_at', [$startMonth, $endMonth])
-                ->sum(DB::raw('plats.prix_reduit * sous_commandes.quantite_plat'));
+                ->select(
+                    'sous_commandes.code_commande',
+                    DB::raw('SUM(plats.prix_reduit * sous_commandes.quantite_plat) as total_commande'),
+                    'sous_commandes.commission'
+                )
+                ->groupBy('sous_commandes.code_commande', 'sous_commandes.commission')
+                ->get();
+
+            // Calcul du revenu après application de la commission
+            $revenuMois = $commandes->sum(function ($commande) {
+                $commission = $commande->commission ?? 0; // commission en pourcentage
+                return $commande->total_commande * (1 - $commission / 100);
+            });
 
             /** ===============================
              *  COMMANDES DU MOIS
@@ -34,7 +47,8 @@ class AnalytiqueController extends Controller
             $commandesMois = DB::table('sous_commandes')
                 ->where('id_marchand', $marchandId)
                 ->whereBetween('created_at', [$startMonth, $endMonth])
-                ->count();
+                ->distinct('code_commande')
+                ->count('code_commande');
 
             /** ===============================
              *  NOUVEAUX CLIENTS
@@ -50,12 +64,14 @@ class AnalytiqueController extends Controller
              * =============================== */
             $totalCommandes = DB::table('sous_commandes')
                 ->where('id_marchand', $marchandId)
-                ->count();
+                ->distinct('code_commande')
+                ->count('code_commande');
 
             $commandesLivrees = DB::table('sous_commandes')
                 ->where('id_marchand', $marchandId)
                 ->where('statut', 'livré')
-                ->count();
+                ->distinct('code_commande')
+                ->count('code_commande');
 
             $tauxRecouvrement = $totalCommandes > 0
                 ? round(($commandesLivrees / $totalCommandes) * 100)
@@ -64,17 +80,35 @@ class AnalytiqueController extends Controller
             /** ===============================
              *  STATISTIQUES (7 DERNIERS JOURS)
              * =============================== */
-            $stats = DB::table('sous_commandes')
+            $statsRaw = DB::table('sous_commandes')
                 ->join('plats', 'plats.id', '=', 'sous_commandes.id_plat')
                 ->where('sous_commandes.id_marchand', $marchandId)
                 ->where('sous_commandes.created_at', '>=', now()->subDays(6))
                 ->select(
-                    DB::raw('DATE(sous_commandes.created_at) as day'),
-                    DB::raw('SUM(plats.prix_reduit * sous_commandes.quantite_plat) as revenu')
+                    'sous_commandes.code_commande',
+                    'sous_commandes.created_at',
+                    'sous_commandes.commission',
+                    DB::raw('SUM(plats.prix_reduit * sous_commandes.quantite_plat) as total_commande')
                 )
-                ->groupBy(DB::raw('DATE(sous_commandes.created_at)'))
-                ->orderBy('day')
+                ->groupBy('sous_commandes.code_commande', 'sous_commandes.created_at', 'sous_commandes.commission')
                 ->get();
+
+            // On regroupe par jour et applique la commission
+            $statsGrouped = $statsRaw->groupBy(function ($item) {
+                return Carbon::parse($item->created_at)->format('Y-m-d');
+            });
+
+            $stats = collect();
+            foreach ($statsGrouped as $day => $commandesDay) {
+                $revenuJour = $commandesDay->sum(function ($commande) {
+                    $commission = $commande->commission ?? 0;
+                    return $commande->total_commande * (1 - $commission / 100);
+                });
+                $stats->push((object)[
+                    'day' => $day,
+                    'revenu' => $revenuJour
+                ]);
+            }
 
             $maxRevenu = $stats->max('revenu') ?: 1;
 
@@ -187,6 +221,7 @@ class AnalytiqueController extends Controller
             ], 500);
         }
     }
+
 
 
 
