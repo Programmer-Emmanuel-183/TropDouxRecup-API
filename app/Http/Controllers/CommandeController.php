@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Admin;
 use App\Models\Commande;
 use App\Models\Commission;
+use App\Models\CommissionEntreprise;
+use App\Models\CommissionPremium;
 use App\Models\Notification;
 use App\Models\Panier;
 use App\Models\Plat;
@@ -484,6 +486,7 @@ class CommandeController extends Controller
         }
 
         try {
+
             $marchand = $request->user();
             $dateNow = now();
             $codeCommande = $request->query('code_commande');
@@ -500,6 +503,7 @@ class CommandeController extends Controller
                 ], 404);
             }
 
+            // 🔹 Marquer comme récupéré
             foreach ($sousCommandes as $s) {
                 $s->statut = 'completed';
                 $s->date_de_recuperation = $dateNow;
@@ -518,11 +522,13 @@ class CommandeController extends Controller
                 $commande->save();
             }
 
+            // 🔹 Calcul total
             $dishes = [];
             $totalPrice = 0;
             $totalQuantity = 0;
 
             foreach ($sousCommandes as $s) {
+
                 $dishes[] = [
                     'id' => $s->id_plat,
                     'name' => $s->plat?->nom_plat ?? 'Plat supprimé',
@@ -536,25 +542,28 @@ class CommandeController extends Controller
             }
 
             $client = $sousCommandes->first()->client;
-            if(!$client){
+
+            if (!$client) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Client non trouvé'
-                ],404);
+                ], 404);
             }
 
-            if($client->device_token !== null){
+            // 🔔 Notification client
+            if ($client->device_token !== null) {
                 $notification_client = new Notification();
                 $notification_client->type = 'commande_recuperation';
                 $notification_client->title = 'Votre commande a été récupérée avec succès 🎉';
-                $notification_client->body =  "Votre commande #{$codeCommande} a bien été récupérée chez {$marchand->nom_marchand}. Merci pour votre confiance 🙏";
+                $notification_client->body = "Votre commande #{$codeCommande} a bien été récupérée chez {$marchand->nom_marchand}. Merci pour votre confiance 🙏";
                 $notification_client->role = 'client';
                 $notification_client->id_user = $client->id;
                 $notification_client->save();
                 app(PushNotifController::class)->sendPush($notification_client);
             }
 
-            if($marchand->device_token !== null){
+            // 🔔 Notification marchand
+            if ($marchand->device_token !== null) {
                 $notification_marchand = new Notification();
                 $notification_marchand->type = 'commande_recuperation';
                 $notification_marchand->title = "Commande #{$codeCommande} récupérée avec succès ✅";
@@ -565,29 +574,47 @@ class CommandeController extends Controller
                 app(PushNotifController::class)->sendPush($notification_marchand);
             }
 
-
+            // 🔹 Vérifier si déjà crédité
             $alreadyCredited = Transaction::where('libelle', "Commande #{$codeCommande}")
                 ->where('id_user', $marchand->id)
                 ->exists();
 
             if (!$alreadyCredited) {
 
-                $commissionType = 'Commission'; // défaut pour débutant
-                if ($client->abonnement) {
-                    switch ($client->abonnement->type_abonnement) {
+                // ✅ Commission basée sur abonnement DU MARCHAND
+                if ($marchand->abonnement) {
+
+                    switch ($marchand->abonnement->type_abonnement) {
+
                         case 'premium':
-                            $commissionType = 'CommissionPremium';
+                            $commissionPercent = CommissionPremium::first()?->pourcentage ?? 0;
                             break;
+
                         case 'entreprise':
-                            $commissionType = 'CommissionEntreprise';
+                            $commissionPercent = CommissionEntreprise::first()?->pourcentage ?? 0;
                             break;
+
+                        default:
+                            $commissionPercent = Commission::first()?->pourcentage ?? 0;
                     }
+
+                } else {
+                    $commissionPercent = Commission::first()?->pourcentage ?? 0;
                 }
 
-                $commissionValue = $commissionType::first();
+                $commissionAmount = ($totalPrice * $commissionPercent) / 100;
+                $netAmount = $totalPrice - $commissionAmount;
 
+                // 🔹 Sauvegarder commission sur sous-commandes
+                foreach ($sousCommandes as $sc) {
+                    $sc->update([
+                        'commission' => $commissionPercent
+                    ]);
+                }
+
+                // 🔹 Crédit transaction marchand
                 $transaction = new Transaction();
-                $transaction->amount = $totalPrice - ($totalPrice * $commissionValue) / 100;
+                $transaction->amount = $netAmount;
                 $transaction->type = 'credit';
                 $transaction->libelle = "Commande #{$codeCommande}";
                 $transaction->id_user = $marchand->id;
@@ -600,7 +627,7 @@ class CommandeController extends Controller
                 'data' => [
                     'id' => $commande->id,
                     'orderId' => $codeCommande,
-                    'customerName' => $sousCommandes->first()->client->nom_client ?? 'Client',
+                    'customerName' => $client->nom_client ?? 'Client',
                     'status' => $commande->statut,
                     'createdAt' => $commande->created_at,
                     'commission' => $sousCommandes->first()->commission ?? 0,
@@ -612,12 +639,14 @@ class CommandeController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur interne : ' . $e->getMessage()
             ], 500);
         }
     }
+
 
 
 

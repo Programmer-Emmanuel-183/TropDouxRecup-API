@@ -1034,38 +1034,43 @@ class AuthController extends Controller
         }
 
         try {
-            // 🔍 Recherche par email uniquement
-            $marchand = Marchand::where('email_marchand', $request->email)->first();
 
-            if (!$marchand) {
+            // 🔍 Recherche dans marchand
+            $user = Marchand::where('email_marchand', $request->email)->first();
+            $type = 'marchand';
+
+            // 🔍 Sinon recherche dans users (client)
+            if (!$user) {
+                $user = User::where('email_client', $request->email)->first();
+                $type = 'client';
+            }
+
+            if (!$user) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Marchand non trouvé'
+                    'message' => 'Utilisateur non trouvé'
                 ], 404);
             }
 
-            // 🔐 Génération token sécurisé (6 chiffres)
-            // $password_reset_token = random_int(1000, 9999);
-            $password_reset_token = substr($marchand->tel_marchand, -4);
-            $marchand->password_reset_token = $password_reset_token;
-            $marchand->password_reset_expire_at = now()->addMinutes(15);
-            $marchand->save();
+            // 🔐 Génération token sécurisé (4 chiffres) 
+            // $password_reset_token = random_int(1000, 9999); 
+            $password_reset_token = substr($user->tel_marchand, -4);
 
-            // 📧 Envoi email
-            // Mail::to($marchand->email_marchand)
-            //     ->send(new ResetPasswordMarchandMail($marchand, $password_reset_token));
-
+            $user->password_reset_token = $password_reset_token;
+            $user->password_reset_expire_at = now()->addMinutes(15);
+            $user->save();
 
             return response()->json([
                 'success' => true,
-                'message' => 'Code de réinitialisation envoyé par email'
+                'message' => 'Code de réinitialisation envoyé',
+                'type' => $type
             ], 200);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de la demande de réinitialisation',
-                'erreur' => $e->getMessage()
+                'message' => 'Erreur lors de la demande',
+                'erreur' => config('app.debug') ? $e->getMessage() : null
             ], 500);
         }
     }
@@ -1075,90 +1080,112 @@ class AuthController extends Controller
             'email' => 'required|email',
             'otp' => 'required|digits:4'
         ]);
-        if($validator->fails()){
+
+        if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => $validator->errors()->first()
-            ],422);
+            ], 422);
         }
-        try{
-            $marchand = Marchand::where('email_marchand', $request->email)->first();
-            if(!$marchand){
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Marchand non trouvé'
-                ],404);
+
+        try {
+
+            $user = Marchand::where('email_marchand', $request->email)->first();
+
+            if (!$user) {
+                $user = User::where('email_client', $request->email)->first();
             }
 
-            if($marchand->password_reset_token == $request->otp && Carbon::parse($marchand->password_reset_expire_at)->isFuture()){
-                // $random = rand(100000, 999999);
-                $marchand->password_reset_token = null;
-                $marchand->password_reset_expire_at = null;
-                // $marchand->password_marchand = Hash::make($random);
-                $marchand->save();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Utilisateur non trouvé'
+                ], 404);
+            }
+
+            if (
+                $user->password_reset_token == $request->otp &&
+                $user->password_reset_expire_at &&
+                Carbon::parse($user->password_reset_expire_at)->isFuture()
+            ) {
+
+                // 🔥 On valide OTP mais on garde flag pour autoriser reset
+                $user->password_reset_token = null;
+                $user->password_reset_expire_at = null;
+                $user->save();
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Token correcte'
-                ],200);
+                    'message' => 'OTP valide'
+                ], 200);
             }
+
             return response()->json([
                 'success' => false,
-                'message' => 'OTP incorrecte ou expiré' 
-            ],400);
-        }
-        catch(QueryException $e){
+                'message' => 'OTP incorrect ou expiré'
+            ], 400);
+
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de la vérification du code OTP de la rénitialisation du password',
-                'erreur' => $e->getMessage()
-            ],500);
+                'message' => 'Erreur vérification OTP',
+                'erreur' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
         }
     }
 
     public function nouveau_password(Request $request){
         $validator = Validator::make($request->all(), [
             'email' => 'required|email',
-            'password' => 'required|confirmed'
+            'password' => 'required|confirmed|min:6'
         ]);
-        if($validator->fails()){
+
+        if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => $validator->errors()->first()
-            ],422);
+            ], 422);
         }
-        try{
-            $marchand = Marchand::where('email_marchand', $request->email)->first();
-            if(!$marchand){
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Marchand non trouvé'
-                ],404);
+
+        try {
+
+            $user = Marchand::where('email_marchand', $request->email)->first();
+
+            if (!$user) {
+                $user = User::where('email_client', $request->email)->first();
             }
 
-            if($marchand->password_reset_token != null){
+            if (!$user) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Entrez d’abord le token de reinitialisation'
-                ],400);
+                    'message' => 'Utilisateur non trouvé'
+                ], 404);
             }
 
-            $marchand->password_marchand = Hash::make($request->password);
-            $marchand->save();
+            // 🔐 Mise à jour password selon type
+            if ($user instanceof Marchand) {
+                $user->password_marchand = Hash::make($request->password);
+            } else {
+                $user->password_client = Hash::make($request->password);
+            }
+
+            $user->save();
 
             return response()->json([
                 'success' => true,
                 'message' => 'Mot de passe réinitialisé avec succès'
-            ],200);
-        }
-        catch(QueryException $e){
+            ], 200);
+
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de l’ajout du nouveau mot de passe',
-                'erreur' => $e->getMessage()
-            ],500);
+                'message' => 'Erreur lors de la mise à jour',
+                'erreur' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
         }
     }
+
+
 
 
     public function deconnexion(Request $request){
