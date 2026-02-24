@@ -237,9 +237,12 @@ class PlatController extends Controller
             // Nombre d’éléments par page (par défaut 10)
             $perPage = $request->query('limit', 10);
 
-            $query = Plat::with(['categorie', 'marchand'])
-                ->where('is_active', true)
-                ->where('quantite_disponible', '>', 0);
+           $query = Plat::with(['categorie', 'marchand'])
+            ->where('is_active', true)
+            ->where('quantite_disponible', '>', 0)
+            ->whereHas('marchand', function ($q) {
+                $q->whereNotNull('adresse_marchand');
+            });
 
             if (!is_null($begin) && !is_null($end)) {
                 $query->whereBetween('prix_reduit', [(int) $begin, (int) $end]);
@@ -311,9 +314,11 @@ class PlatController extends Controller
 
     public function plat(Request $request, $id){
         try {
-            $plat = Plat::find($id);
-            $avis = Avis::where('id_plat', $plat->id)->avg('etoile') ?? 0;
-            $moyenne = round($avis, 1);
+
+            $client = $request->user('client'); // 🔥 comme dans plats()
+
+            $plat = Plat::with(['categorie', 'marchand.commune'])->find($id);
+
             if (!$plat) {
                 return response()->json([
                     'success' => false,
@@ -321,17 +326,17 @@ class PlatController extends Controller
                 ], 404);
             }
 
-            // $recommandations = Plat::inRandomOrder()->limit(10)->get()->map(function ($item) {
-            //     return [
-            //         'id' => $item->id,
-            //         'nom_plat' => $item->nom_plat,
-            //         'image_couverture' => $item->image_couverture,
-            //         'quantite_plat' => $item->quantite_plat,
-            //         'quantite_disponible' => $item->quantite_disponible,
-            //         'prix_origine' => $item->prix_origine,
-            //         'prix_reduit' => $item->prix_reduit,
-            //     ];
-            // });
+            $avis = Avis::where('id_plat', $plat->id)->avg('etoile') ?? 0;
+            $moyenne = round($avis, 1);
+
+            // 🔥 Ajout is_favorite
+            $isFavorite = false;
+
+            if ($client) {
+                $isFavorite = FavorisPlat::where('id_client', $client->id)
+                    ->where('id_plat', $plat->id)
+                    ->exists();
+            }
 
             return response()->json([
                 'success' => true,
@@ -347,12 +352,16 @@ class PlatController extends Controller
                     'quantite_plat' => $plat->quantite_plat,
                     'quantite_disponible' => $plat->quantite_disponible,
                     'statut' => $plat->is_active == 1 ? 'actif' : 'inactif',
+                    'is_favorite' => $isFavorite, // ✅ ajouté ici
+
                     'categorie' => $plat->categorie ? [
                         'id' => $plat->categorie->id,
                         'nom_categorie' => $plat->categorie->nom_categorie,
                         'image_categorie' => $plat->categorie->image_categorie
                     ] : null,
+
                     'etoile' => $moyenne,
+
                     'merchant' => [
                         'id_merchant' => $plat->marchand->id,
                         'localite' => $plat->marchand->commune->localite,
@@ -360,7 +369,6 @@ class PlatController extends Controller
                         'image_merchant' => $plat->marchand->image_marchand,
                         'location_link' => $plat->marchand->adresse_marchand
                     ]
-                    // 'recommandation' => $recommandations
                 ]
             ], 200);
 

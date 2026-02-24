@@ -106,11 +106,7 @@ class PaiementCommandeController extends Controller
                 $sousCommandes[] = $sous;
             }
 
-            // 🧹 Nettoyage panier
-            Panier::where('id_client', $client->id)
-                ->whereHas('plat', function ($q) use ($request) {
-                    $q->whereIn('id_marchand', $request->marchand_id);
-                })->delete();
+            
 
             // 🔹 Paiement principal
             $paiement = new PaiementCommande();
@@ -123,7 +119,7 @@ class PaiementCommandeController extends Controller
             // 🔹 Payload Pawapay
             $payload = [
                 "depositId" => $paiement->id,
-                "returnUrl" => config('services.pawapay.return_url'),
+                "returnUrl" => config('services.pawapay.return_url_commande'),
                 "customerMessage" => "Paiement commande",
                 "amountDetails" => [
                     "amount" => (string) $totalPrix,
@@ -225,6 +221,13 @@ class PaiementCommandeController extends Controller
                 'sousCommandes.plat.marchand.abonnement',
                 'client'
             ])->find($paiement->id_commande);
+
+            // 🧹 Nettoyage panier UNIQUEMENT si paiement validé
+            if ($commande && $commande->client) {
+                Panier::where('id_client', $commande->client->id)
+                    ->whereIn('id_plat', $commande->sousCommandes->pluck('id_plat'))
+                    ->delete();
+            }
 
             if (!$commande) return;
 

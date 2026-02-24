@@ -8,6 +8,7 @@ use App\Models\Commission;
 use App\Models\CommissionEntreprise;
 use App\Models\CommissionPremium;
 use App\Models\Notification;
+use App\Models\PaiementCommande;
 use App\Models\Panier;
 use App\Models\Plat;
 use App\Models\SousCommande;
@@ -902,7 +903,81 @@ class CommandeController extends Controller
 }
 
 
+    public function transactions_commande(){
+        $paiements = PaiementCommande::with([
+            'client',
+            'commande.sousCommandes.plat.marchand'
+        ])
+        ->where('statut', 'completed')
+        ->latest()
+        ->get();
 
+        if ($paiements->isEmpty()) {
+            return response()->json([
+                'success' => true,
+                'data' => [],
+                'message' => 'Aucune transaction trouvée'
+            ]);
+        }
+
+        $data = $paiements->map(function ($paiement) {
+
+            $commande = $paiement->commande;
+
+            if (!$commande) return null;
+
+            $totalCommissionAdmin = 0;
+
+            $sousCommandes = $commande->sousCommandes->map(function ($sc) use (&$totalCommissionAdmin) {
+
+                $prixUnitaire = $sc->plat->prix_reduit ?? 0;
+                $totalPlat = $prixUnitaire * $sc->quantite_plat;
+
+                $commissionAdmin = ($totalPlat * $sc->commission) / 100;
+
+                $totalCommissionAdmin += $commissionAdmin;
+
+                return [
+                    'client' => [
+                        'id' => $sc->id_client,
+                        'nom' => $sc->client->nom_client ?? null,
+                    ],
+                    'marchand' => [
+                        'id' => $sc->id_marchand,
+                        'nom' => $sc->plat->marchand->nom_marchand ?? null,
+                    ],
+                    'plat' => [
+                        'id' => $sc->id_plat,
+                        'nom' => $sc->plat->nom_plat ?? null,
+                    ],
+                    'quantite' => $sc->quantite_plat,
+                    'prix_unitaire' => $prixUnitaire,
+                    'total_plat' => $totalPlat,
+                    'commission_percent' => $sc->commission,
+                    'commission_admin' => $commissionAdmin,
+                ];
+            });
+
+            return [
+                'commande_id' => $commande->id,
+                'code_commande' => $commande->sousCommandes->first()->code_commande ?? null,
+                'client' => [
+                    'id' => $commande->client->id ?? null,
+                    'nom' => $commande->client->nom_client ?? null,
+                ],
+                'montant_total' => $paiement->prix,
+                'commission_totale_admin' => $totalCommissionAdmin,
+                'date_commande' => $commande->created_at,
+                'sous_commandes' => $sousCommandes,
+            ];
+        })->filter()->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+            'message' => 'Liste des transactions'
+        ]);
+    }
 
 
 

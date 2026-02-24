@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
-class PaiementCommande extends Model
+class RetraitMarchand extends Model
 {
     public $incrementing = false; // empêche l'auto-incrémentation
     protected $keyType = 'string'; // la clé primaire sera une string
@@ -25,20 +25,10 @@ class PaiementCommande extends Model
         'data',
         'prix',
         'statut',
-        'id_marchand',
-        'id_commande',
-        'id_client',
+        'id_marchand'
     ];
 
     public function marchand(){
         return $this->belongsTo(Marchand::class, 'id_marchand');
-    }
-
-    public function client(){
-        return $this->belongsTo(User::class, 'id_client');
-    }
-
-    public function commande(){
-        return $this->belongsTo(Commande::class, 'id_commande');
     }
 }

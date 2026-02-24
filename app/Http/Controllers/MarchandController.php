@@ -17,6 +17,8 @@ class MarchandController extends Controller
     public function marchand(Request $request, $id){
         try {
 
+            $client = $request->user('client'); // 🔥 comme liste_marchand()
+
             $marchand = Marchand::with('commune')->find($id);
 
             if (!$marchand) {
@@ -26,7 +28,18 @@ class MarchandController extends Controller
                 ], 404);
             }
 
-            // ⭐ Moyenne des avis (optimisé)
+            /**
+             * ❤️ Favoris (si client connecté)
+             */
+            $isFavorite = false;
+
+            if ($client) {
+                $isFavorite = FavorisMarchand::where('id_client', $client->id)
+                    ->where('id_marchand', $marchand->id)
+                    ->exists();
+            }
+
+            // ⭐ Moyenne des avis
             $moyenneMarchand = Avis::whereHas('plat', function ($query) use ($id) {
                     $query->where('id_marchand', $id);
                 })
@@ -49,12 +62,13 @@ class MarchandController extends Controller
                         'plat_restant' => 0,
                         'pourcentage' => "0%",
                         'etoile_marchand' => $moyenneMarchand,
+                        'location_link' => $marchand->adresse_marchand,
+                        'is_favorite' => $isFavorite, // ✅ ajouté
                     ],
                     'message' => 'Aucun plat disponible'
                 ], 200);
             }
 
-            // ⭐ Calcul propre des réductions
             $plats_dispo = $plats->map(function ($plat) {
 
                 $pourcentage = $plat->prix_origine > 0
@@ -67,11 +81,10 @@ class MarchandController extends Controller
                     'quantite_disponible' => $plat->quantite_disponible,
                     'prix_origine' => $plat->prix_origine,
                     'prix_reduit' => $plat->prix_reduit,
-                    'reduction_percent' => $pourcentage, // ✅ NUMERIQUE
+                    'reduction_percent' => $pourcentage,
                 ];
             });
 
-            // ✅ Maintenant avg fonctionne
             $pourcentageMoyen = round($plats_dispo->avg('reduction_percent'), 2);
 
             return response()->json([
@@ -82,9 +95,10 @@ class MarchandController extends Controller
                     'image' => $marchand->image_marchand,
                     'localite' => $marchand->commune->localite ?? null,
                     'plat_restant' => $plats->count(),
-                    'pourcentage' => $pourcentageMoyen . "%", // format à la fin
+                    'pourcentage' => $pourcentageMoyen . "%",
                     'etoile_marchand' => $moyenneMarchand,
-                    // 'plats_dispo' => $plats_dispo
+                    'location_link' => $marchand->adresse_marchand,
+                    'is_favorite' => $isFavorite, // ✅ ajouté ici aussi
                 ],
                 'message' => 'Informations du marchand'
             ], 200);
@@ -463,9 +477,17 @@ class MarchandController extends Controller
                 ],404);
             }
 
+            $has_location_link = false;
+            if($marchand->adresse_marchand){
+                $has_location_link = true;
+            }
+
             return response()->json([
                 'success' => true,
-                'data' => $marchand->adresse_marchand,
+                'data' => [
+                    'location_link' => $marchand->adresse_marchand,
+                    'has_location_link' => $has_location_link
+                ],
                 'message' => 'Marchand affiché'
             ],200);
 

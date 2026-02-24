@@ -210,6 +210,11 @@ class AuthController extends Controller
                 $facturation->id_user = $marchand->id;
                 $facturation->save();
 
+                $has_location_link = false;
+                if($marchand->adresse_marchand){
+                    $has_location_link = true;
+                }
+
                 return response()->json([
                     'success' => true,
                     'message' => "Vérification du mail réussie. $message",
@@ -223,7 +228,8 @@ class AuthController extends Controller
                         'image_profil' => $marchand->image_marchand,
                         'device_token' => $marchand->device_token,
                         'is_active' => $marchand->is_active === false ? 0 : 1,
-                        'token' => $token
+                        'token' => $token,
+                        'has_location_link' => $has_location_link
                     ],
                 ], 200);
             }
@@ -324,6 +330,11 @@ class AuthController extends Controller
                 }
 
                 $token = $marchand->createToken('MarchandToken')->plainTextToken;
+                $has_location_link = false;
+                if($marchand->adresse_marchand){
+                    $has_location_link = true;
+                }
+                
                 $marchand->load('abonnement');
                 return response()->json([
                     'success' => true,
@@ -337,7 +348,8 @@ class AuthController extends Controller
                         'type_abonnement' => $marchand->abonnement->type_abonnement,
                         'device_token' => $marchand->device_token,
                         'is_active' => $marchand->is_active,
-                        'token' => $token
+                        'token' => $token,
+                        'has_location_link' => $has_location_link
                     ],
                     'message' => 'Connexion réussie'
                 ], 200);
@@ -387,6 +399,12 @@ class AuthController extends Controller
                     'message' => 'Marchand non trouvé' 
                 ],404);
             }
+
+            $has_location_link = false;
+            if($marchand->adresse_marchand){
+                $has_location_link = true;
+            }
+
             return response()->json([
                 'success' => true,
                 'data' => [
@@ -403,7 +421,8 @@ class AuthController extends Controller
                         'libelle' => $marchand->commune->localite,
                     ] : null,
                     'device_token' => $marchand->device_token,
-                    'is_active' => $marchand->is_active
+                    'is_active' => $marchand->is_active,
+                    'has_location_link' => $has_location_link
                 ],
                 'message' => 'Information du profil affichée avec succès'
             ],200);
@@ -489,6 +508,11 @@ class AuthController extends Controller
             $marchand->id_commune = $request->id_localite ?? $marchand->id_commune;
             $marchand->save();
 
+            $has_location_link = false;
+            if($marchand->adresse_marchand){
+                $has_location_link = true;
+            }
+
             return response()->json([
                 'success' => true,
                 'data' => [
@@ -504,7 +528,7 @@ class AuthController extends Controller
                         'libelle' => $marchand->commune->localite
                     ] : null,
                     'device_token' => $marchand->device_token,
-
+                    'has_location_link' => $has_location_link
                 ],
                 'message' => 'Info marchand modifié avec succès.'
             ],200);

@@ -38,6 +38,7 @@ return [
     'pawapay' => [
         'api_key' => env('PAWAPAY_API_KEY'),
         'return_url' => env('PAWAPAY_RETURN_URL'),
+        'return_url_commande' => env('PAWAPAY_RETURN_COMMANDE_URL'),
     ],
 
 

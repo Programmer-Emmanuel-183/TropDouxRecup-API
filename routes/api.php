@@ -8,6 +8,7 @@ use App\Http\Controllers\AssistanceController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AvantageController;
 use App\Http\Controllers\AvisController;
+use App\Http\Controllers\CallbackPawapayController;
 use App\Http\Controllers\CategorieController;
 use App\Http\Controllers\CommandeController;
 use App\Http\Controllers\CommissionController;
@@ -22,6 +23,7 @@ use App\Http\Controllers\PaiementCommandeController;
 use App\Http\Controllers\PanierController;
 use App\Http\Controllers\PlatController;
 use App\Http\Controllers\PubliciteController;
+use App\Http\Controllers\RetraitMarchandController;
 use App\Http\Controllers\SuggestionController;
 use App\Http\Controllers\TimeController;
 use App\Http\Controllers\TransactionController;
@@ -157,6 +159,9 @@ Route::middleware(['auth:marchand', 'marchand.active'])->group(function(){
     Route::get('/marquer/recuperer', [CommandeController::class, 'marquer_comme_recupere']);
     Route::get('/commande/{code_commande}', [CommandeController::class, 'sous_commandes_par_code']);
 });
+
+//Transaction commandes chez admin
+Route::get('/transactions/commande/admin', [CommandeController::class, 'transactions_commande'])->middleware('auth:admin');
 
 //Info general du marchand
 Route::get('/general/info', [MarchandController::class, 'general_info'])->middleware('auth:marchand');
@@ -296,7 +301,6 @@ Route::get('/recherche', [SuggestionController::class, 'results']);
 //Paiement abonnement
 Route::post('/initialiser/paiement', [PaiementAbonnementController::class, 'initialiser_paiement'])->middleware(['auth:marchand', 'marchand.active']);
 Route::get('/verifier/paiement/{depositId}', [PaiementAbonnementController::class, 'verifier_paiement']);
-Route::get('/callback/paiement', [PaiementAbonnementController::class, 'callback_pawapay']);
 
 //Afficher solde marchand
 Route::get('/solde/marchands', [MarchandController::class, 'afficher_solde_marchands'])->middleware('auth:admin');
@@ -305,7 +309,15 @@ Route::get('/solde/marchands', [MarchandController::class, 'afficher_solde_march
 Route::get('/time', [TimeController::class, 'time']);
 Route::post('/update/time', [TimeController::class, 'update_time'])->middleware('auth:admin');
 
-
+//Paiement commande
 Route::post('/paiement/commande', [PaiementCommandeController::class, 'initialiser_paiement'])->middleware('auth:client');
 Route::get('/verifier/paiement/commande/{depositId}', [PaiementCommandeController::class, 'verifier_paiement']);
-Route::get('/callback/paiement/commande', [PaiementAbonnementController::class, 'callback_pawapay']);
+
+//Callback paiement commande et abonnement
+Route::get('/callback/paiement', [CallbackPawapayController::class, 'callback_pawapay']);
+
+//Retrait marchand
+Route::get('/operateurs/disponibles', [RetraitMarchandController::class, 'operateurs_disponible']);
+Route::post('/initialiser/retrait/marchand', [RetraitMarchandController::class, 'initialiser_retrait'])->middleware(['auth:marchand', 'marchand.active']);
+Route::get('/verifier/retrait/marchand/{payoutId}', [RetraitMarchandController::class, 'verifier_retrait']);
+Route::get('/callback/retrait', [RetraitMarchandController::class, 'callback_retrait']);
