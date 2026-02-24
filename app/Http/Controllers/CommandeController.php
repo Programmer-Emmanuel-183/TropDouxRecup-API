@@ -730,12 +730,13 @@ class CommandeController extends Controller
         try {
 
             $sousCommandes = SousCommande::with([
-                    'plat.marchand',
-                    'client',
-                    'commande'
-                ])
-                ->orderBy('created_at', 'desc')
-                ->get();
+                'plat.marchand.commune',
+                'client',
+                'commande'
+            ])
+            ->whereHas('plat') // ignore les sous-commandes sans plat
+            ->orderBy('created_at', 'desc')
+            ->get();
 
             if ($sousCommandes->isEmpty()) {
                 return response()->json([
