@@ -23,6 +23,7 @@ use App\Http\Controllers\PaiementCommandeController;
 use App\Http\Controllers\PanierController;
 use App\Http\Controllers\PlatController;
 use App\Http\Controllers\PubliciteController;
+use App\Http\Controllers\RetraitAdminController;
 use App\Http\Controllers\RetraitMarchandController;
 use App\Http\Controllers\SuggestionController;
 use App\Http\Controllers\TimeController;
@@ -321,3 +322,9 @@ Route::get('/operateurs/disponibles', [RetraitMarchandController::class, 'operat
 Route::post('/initialiser/retrait/marchand', [RetraitMarchandController::class, 'initialiser_retrait'])->middleware(['auth:marchand', 'marchand.active']);
 Route::get('/verifier/retrait/marchand/{payoutId}', [RetraitMarchandController::class, 'verifier_retrait']);
 Route::get('/callback/retrait', [RetraitMarchandController::class, 'callback_retrait']);
+
+//Retrait admin
+Route::post('/initialiser/retrait/admin', [RetraitAdminController::class, 'initialiser_retrait'])->middleware('auth:admin');
+Route::get('/verifier/retrait/admin/{payoutId}', [RetraitAdminController::class, 'verifier_retrait']);
+Route::get('/historiques/retrait/admin', [RetraitAdminController::class, 'historiques_retrait'])->middleware('auth:admin');
+Route::get('/callback/retrait', [RetraitAdminController::class, 'callback_retrait']);

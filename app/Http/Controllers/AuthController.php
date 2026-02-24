@@ -739,7 +739,7 @@ class AuthController extends Controller
                     'telephone' => $admin->tel_admin,
                     'image_profil' => $admin->image_admin,
                     'role' => $admin->role,
-                    'role_label' => $admin->role == 1 ? 'admin' : 'sous-admin',
+                    'role_label' => $admin->role == 2 ? 'admin' : 'sous-admin',
                     'token' => $token
                 ],
                 'message' => 'Connexion réussie'
