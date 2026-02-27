@@ -477,17 +477,9 @@ class MarchandController extends Controller
                 ],404);
             }
 
-            $has_location_link = false;
-            if($marchand->adresse_marchand){
-                $has_location_link = true;
-            }
-
             return response()->json([
                 'success' => true,
-                'data' => [
-                    'location_link' => $marchand->adresse_marchand,
-                    'has_location_link' => $has_location_link
-                ],
+                'data' => $marchand->adresse_marchand,
                 'message' => 'Marchand affiché'
             ],200);
 

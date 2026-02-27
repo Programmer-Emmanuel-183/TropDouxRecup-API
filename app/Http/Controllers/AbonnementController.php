@@ -139,13 +139,13 @@ class AbonnementController extends Controller
 
     public function update_abonnement(Request $request, $id){
         $validator = Validator::make($request->all(),[
-            'type_abonnement' => 'required',
-            'description' => 'required',
-            'montant' => 'required',
-            'duree' => 'required|in:mois,illimite,trimestre,semestre,annee,semaine',
-            'icon_url' => 'required|image|mimes:jpeg,png,jpg|max:2048',
-            'icon_bg_color' => 'required',
-            'avantages' => 'required|array',
+            'type_abonnement' => 'nullable',
+            'description' => 'nullable',
+            'montant' => 'nullable',
+            'duree' => 'nullable|in:mois,illimite,trimestre,semestre,annee,semaine',
+            'icon_url' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'icon_bg_color' => 'nullable',
+            'avantages' => 'nullable|array',
             'avantages.*' => 'uuid|exists:avantages,id'
         ]);
 
@@ -164,14 +164,17 @@ class AbonnementController extends Controller
                     'message' => 'Abonnement non trouvé'
                 ],404);
             }
-            $image = $this->uploadImageToHosting($request->file('icon_url'));
+             if ($request->hasFile('icon_url')) {
+                $image = $this->uploadImageToHosting($request->file('icon_url'));
+                $abonnement->icon_url = $image;
+            }
 
-            $abonnement->type_abonnement = $request->type_abonnement;
-            $abonnement->description = $request->description;
-            $abonnement->montant = $request->montant;
-            $abonnement->duree = $request->duree;
-            $abonnement->icon_url = $image;
-            $abonnement->icon_bg_color = $request->icon_bg_color;
+            $abonnement->type_abonnement = $request->type_abonnement ?? $abonnement->type_abonnement;
+            $abonnement->description = $request->description ?? $abonnement->description;
+            $abonnement->montant = $request->montant ?? $abonnement->montant;
+            $abonnement->duree = $request->duree ?? $abonnement->duree;
+            $abonnement->icon_url = $image ?? $abonnement->icon_url;
+            $abonnement->icon_bg_color = $request->icon_bg_color ?? $abonnement->icon_bg_color;
             $abonnement->save();
 
             $abonnement->avantages()->sync($request->avantages);
@@ -233,14 +236,16 @@ class AbonnementController extends Controller
 
 
     private function uploadImageToHosting($image){
-        $apiKey = '9b1ab6564d99aab6418ad53d3451850b';
+        if (!$image) {
+            throw new \Exception("Aucun fichier reçu.");
+        }
 
-        // Vérifie que le fichier est une instance valide
         if (!$image->isValid()) {
             throw new \Exception("Fichier image non valide.");
         }
 
-        // Lecture et encodage en base64
+        $apiKey = '9b1ab6564d99aab6418ad53d3451850b';
+
         $imageContent = base64_encode(file_get_contents($image->getRealPath()));
 
         $response = Http::asForm()->post('https://api.imgbb.com/1/upload', [
