@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\MarchandInscriptionMail;
 use App\Mail\OtpMail;
 use App\Mail\ResetPasswordMarchandMail;
 use App\Models\Abonnement;
@@ -192,16 +193,27 @@ class AuthController extends Controller
                     'id_abonnement' => $abonnement->id
                 ]);
                 $activation = ActivationCompte::first();
+
+                $admins = Admin::pluck('email_admin')->toArray();
+
                 if($activation->activate == true){
+
                     $marchand->is_active = true;
                     $marchand->save();
+
+                    $type = 'active';
                     $message = "";
                     $token = $marchand->createToken('MarchandToken')->plainTextToken;
                 }
                 else{
+                    $type = 'pending';
                     $message = "Un administrateur validera votre inscription.";
                     $token = "";
                 }
+
+                // 🔥 Envoi unique avec BCC
+                Mail::bcc($admins)
+                    ->send(new MarchandInscriptionMail($marchand, $type));
                 
 
                 $facturation = new Facturation();
@@ -211,6 +223,7 @@ class AuthController extends Controller
                 $facturation->save();
 
                 $has_location_link = false;
+
                 if($marchand->adresse_marchand){
                     $has_location_link = true;
                 }
@@ -717,7 +730,7 @@ class AuthController extends Controller
             if (!Hash::check($request->password, $admin->password_admin)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Mot de passe incorrect'
+                    'message' => 'Identifiants incorrect'
                 ], 400);
             }
 

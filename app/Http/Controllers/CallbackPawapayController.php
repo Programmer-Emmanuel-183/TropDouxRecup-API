@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\NouvelAbonnementMarchandMail;
+use App\Mail\NouvelleCommandePayee;
 use App\Models\Abonnement;
 use App\Models\Admin;
 use App\Models\Commande;
@@ -16,6 +18,7 @@ use App\Models\PaiementCommande;
 use App\Models\Panier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class CallbackPawapayController extends Controller
 {
@@ -132,6 +135,12 @@ class CallbackPawapayController extends Controller
                 $facturation->id_user = $marchand->id;
                 $facturation->save();
 
+                $admins = Admin::pluck('email_admin')->toArray();
+
+                Mail::to($admins)->send(
+                    new NouvelAbonnementMarchandMail($marchand, $abonnement, $paiementAbonnement)
+                );
+
                 if ($marchand->device_token) {
 
                     $notification = new Notification();
@@ -218,6 +227,13 @@ class CallbackPawapayController extends Controller
                     Panier::where('id_client', $commande->client->id)
                         ->whereIn('id_plat', $commande->sousCommandes->pluck('id_plat'))
                         ->delete();
+                }
+
+                // Récupérer tous les admins (role = 2)
+                $admins = Admin::where('role', 2)->get();
+
+                foreach ($admins as $admin) {
+                    Mail::to($admin->email_admin)->send(new NouvelleCommandePayee($commande, $commande->client));
                 }
 
                 if (!$commande) return;

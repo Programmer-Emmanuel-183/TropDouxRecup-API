@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\NouvelAbonnementMarchandMail;
 use App\Models\Abonnement;
+use App\Models\Admin;
 use App\Models\Facturation;
 use App\Models\Marchand;
 use App\Models\Notification;
@@ -11,6 +13,7 @@ use Doctrine\DBAL\Query\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 
 class PaiementAbonnementController extends Controller
@@ -342,6 +345,13 @@ class PaiementAbonnementController extends Controller
         $facturation->id_user = $paiement->marchand->id;
         $facturation->save();
 
+        // 🔔 Envoi mail aux admins
+        $admins = Admin::pluck('email_admin')->toArray();
+
+        Mail::to($admins)->send(
+            new NouvelAbonnementMarchandMail($marchand, $abonnement, $paiement)
+        );
+
         if ($marchand->device_token !== null) {
 
             $notification_marchand = new Notification();
@@ -559,6 +569,13 @@ class PaiementAbonnementController extends Controller
         $facturation->montant = $paiement->prix;
         $facturation->id_user = $paiement->marchand->id;
         $facturation->save();
+
+        // 🔔 Envoi mail aux admins
+        $admins = Admin::pluck('email_admin')->toArray();
+
+        Mail::to($admins)->send(
+            new NouvelAbonnementMarchandMail($marchand, $abonnement, $paiement)
+        );
 
         if ($marchand->device_token !== null) {
 

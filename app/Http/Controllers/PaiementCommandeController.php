@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\NouvelleCommandePayee;
 use App\Models\Admin;
 use App\Models\Commande;
 use App\Models\Commission;
@@ -15,6 +16,7 @@ use App\Models\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
@@ -217,10 +219,19 @@ class PaiementCommandeController extends Controller
                 'data' => $result
             ]);
 
+            
+
             $commande = Commande::with([
                 'sousCommandes.plat.marchand.abonnement',
                 'client'
             ])->find($paiement->id_commande);
+
+            // Récupérer tous les admins (role = 2)
+            $admins = Admin::where('role', 2)->get();
+
+            foreach ($admins as $admin) {
+                Mail::to($admin->email_admin)->send(new NouvelleCommandePayee($commande, $commande->client));
+            }
 
             // 🧹 Nettoyage panier UNIQUEMENT si paiement validé
             if ($commande && $commande->client) {
