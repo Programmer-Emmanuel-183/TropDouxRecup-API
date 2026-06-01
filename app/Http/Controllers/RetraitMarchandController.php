@@ -7,6 +7,7 @@ use App\Models\RetraitMarchand;
 use App\Models\Transaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -70,7 +71,8 @@ class RetraitMarchandController extends Controller
         $validator = Validator::make($request->all(), [
             'id_operateur' => 'required|string',
             'phone' => 'required|string',
-            'montant' => 'required|integer|min:100'
+            'montant' => 'required|integer|min:100',
+            'password' => 'required'
         ]);
 
         if ($validator->fails()) {
@@ -93,64 +95,70 @@ class RetraitMarchandController extends Controller
 
             return DB::transaction(function () use ($request, $marchand) {
 
-                // 🔥 Création retrait
-                $retrait = RetraitMarchand::create([
-                    'id' => Str::uuid(),
-                    'prix' => $request->montant,
-                    'statut' => 'pending',
-                    'id_marchand' => $marchand->id,
-                ]);
+                if(Hash::check($request->password, $marchand->password_marchand)){
+                    // 🔥 Création retrait
+                    $retrait = RetraitMarchand::create([
+                        'id' => Str::uuid(),
+                        'prix' => $request->montant,
+                        'statut' => 'pending',
+                        'id_marchand' => $marchand->id,
+                    ]);
 
-                // 🔥 Déduire du solde
-                $marchand->decrement('solde_marchand', $request->montant);
+                    // 🔥 Déduire du solde
+                    $marchand->decrement('solde_marchand', $request->montant);
 
-                // 🔥 Créer transaction (pending)
-                Transaction::create([
-                    'id' => Str::uuid(),
-                    'amount' => $request->montant,
-                    'type' => 'debit',
-                    'libelle' => 'Retrait vers Mobile Money',
-                    'id_user' => $marchand->id,
-                    'is_pending' => true
-                ]);
+                    // 🔥 Créer transaction (pending)
+                    Transaction::create([
+                        'id' => Str::uuid(),
+                        'amount' => $request->montant,
+                        'type' => 'debit',
+                        'libelle' => 'Retrait vers Mobile Money',
+                        'id_user' => $marchand->id,
+                        'is_pending' => true
+                    ]);
 
-                // 🔥 Payload Pawapay
-                $payload = [
-                    "payoutId" => $retrait->id,
-                    "amount" => (string) $request->montant,
-                    "currency" => "XOF",
-                    "recipient" => [
-                        "type" => "MMO",
-                        "accountDetails" => [
-                            "phoneNumber" => $request->phone,
-                            "provider" => $request->id_operateur
+                    // 🔥 Payload Pawapay
+                    $payload = [
+                        "payoutId" => $retrait->id,
+                        "amount" => (string) $request->montant,
+                        "currency" => "XOF",
+                        "recipient" => [
+                            "type" => "MMO",
+                            "accountDetails" => [
+                                "phoneNumber" => $request->phone,
+                                "provider" => $request->id_operateur
+                            ]
                         ]
-                    ]
-                ];
+                    ];
 
-                $response = Http::withToken(config('services.pawapay.api_key'))
-                    ->post('https://api.sandbox.pawapay.io/v2/payouts', $payload);
+                    $response = Http::withToken(config('services.pawapay.api_key'))
+                        ->post('https://api.sandbox.pawapay.io/v2/payouts', $payload);
 
-                $result = $response->json();
+                    $result = $response->json();
 
-                if ($response->failed() || ($result['status'] ?? null) !== 'ACCEPTED') {
+                    if ($response->failed() || ($result['status'] ?? null) !== 'ACCEPTED') {
 
-                    // ❌ Si rejet immédiat → remboursement
-                    $marchand->increment('solde_marchand', $request->montant);
+                        // ❌ Si rejet immédiat → remboursement
+                        $marchand->increment('solde_marchand', $request->montant);
+
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Retrait rejeté',
+                            'erreur' => $result
+                        ], 422);
+                    }
 
                     return response()->json([
-                        'success' => false,
-                        'message' => 'Retrait rejeté',
-                        'erreur' => $result
-                    ], 422);
+                        'success' => true,
+                        'message' => 'Retrait initialisé',
+                        'data' => $retrait
+                    ]);
+
                 }
-
                 return response()->json([
-                    'success' => true,
-                    'message' => 'Retrait initialisé',
-                    'data' => $retrait
-                ]);
-
+                    'success' => false,
+                    'message' => 'Mot de passe incorrect'
+                ],400);
             });
 
         } catch (\Exception $e) {

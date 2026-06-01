@@ -6,6 +6,7 @@ use App\Models\RetraitAdmin;
 use App\Models\Admin;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -59,52 +60,54 @@ class RetraitAdminController extends Controller
         try {
             return DB::transaction(function () use ($request, $admin) {
 
-                // 🔥 Déduire immédiatement le solde de l’admin
-                $admin->decrement('solde', $request->montant);
+                if(Hash::check($request->password, $admin->password_admin)){
+                    // 🔥 Déduire immédiatement le solde de l’admin
+                    $admin->decrement('solde', $request->montant);
 
-                // 🔥 Création retrait
-                $retrait = RetraitAdmin::create([
-                    'id' => Str::uuid(),
-                    'prix' => $request->montant,
-                    'statut' => 'pending',
-                    'id_admin' => $admin->id,
-                ]);
+                    // 🔥 Création retrait
+                    $retrait = RetraitAdmin::create([
+                        'id' => Str::uuid(),
+                        'prix' => $request->montant,
+                        'statut' => 'pending',
+                        'id_admin' => $admin->id,
+                    ]);
 
-                // 🔥 Payload Pawapay
-                $payload = [
-                    "payoutId" => $retrait->id,
-                    "amount" => (string) $request->montant,
-                    "currency" => "XOF",
-                    "recipient" => [
-                        "type" => "MMO",
-                        "accountDetails" => [
-                            "phoneNumber" => $request->phone,
-                            "provider" => $request->id_operateur
+                    // 🔥 Payload Pawapay
+                    $payload = [
+                        "payoutId" => $retrait->id,
+                        "amount" => (string) $request->montant,
+                        "currency" => "XOF",
+                        "recipient" => [
+                            "type" => "MMO",
+                            "accountDetails" => [
+                                "phoneNumber" => $request->phone,
+                                "provider" => $request->id_operateur
+                            ]
                         ]
-                    ]
-                ];
+                    ];
 
-                $response = Http::withToken(config('services.pawapay.api_key'))
-                    ->post('https://api.sandbox.pawapay.io/v2/payouts', $payload);
+                    $response = Http::withToken(config('services.pawapay.api_key'))
+                        ->post('https://api.sandbox.pawapay.io/v2/payouts', $payload);
 
-                $result = $response->json();
+                    $result = $response->json();
 
-                if ($response->failed() || ($result['status'] ?? null) !== 'ACCEPTED') {
-                    // 🔥 remboursement immédiat si rejet
-                    $admin->increment('solde', $request->montant);
+                    if ($response->failed() || ($result['status'] ?? null) !== 'ACCEPTED') {
+                        // 🔥 remboursement immédiat si rejet
+                        $admin->increment('solde', $request->montant);
+
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Retrait rejeté',
+                            'erreur' => $result
+                        ], 422);
+                    }
 
                     return response()->json([
-                        'success' => false,
-                        'message' => 'Retrait rejeté',
-                        'erreur' => $result
-                    ], 422);
+                        'success' => true,
+                        'message' => 'Retrait admin initialisé',
+                        'data' => $retrait->makeHidden(['data'])
+                    ]);
                 }
-
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Retrait admin initialisé',
-                    'data' => $retrait->makeHidden(['data'])
-                ]);
             });
         } catch (\Exception $e) {
             return response()->json([
