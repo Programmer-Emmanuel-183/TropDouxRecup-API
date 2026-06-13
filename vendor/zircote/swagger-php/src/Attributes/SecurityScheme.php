@@ -6,8 +6,8 @@
 
 namespace OpenApi\Attributes;
 
-use OpenApi\Generator;
 use OpenApi\Annotations as OA;
+use OpenApi\Generator;
 
 #[\Attribute(\Attribute::TARGET_CLASS | \Attribute::TARGET_METHOD | \Attribute::TARGET_PROPERTY | \Attribute::IS_REPEATABLE)]
 class SecurityScheme extends OA\SecurityScheme
@@ -23,7 +23,7 @@ class SecurityScheme extends OA\SecurityScheme
         string|object|null $ref = null,
         ?string $securityScheme = null,
         string|array|null $type = null,
-        ?string $description = null,
+        ?string $description = Generator::UNDEFINED,
         ?string $name = null,
         ?string $in = null,
         ?string $bearerFormat = null,
@@ -38,7 +38,7 @@ class SecurityScheme extends OA\SecurityScheme
                 'ref' => $ref ?? Generator::UNDEFINED,
                 'securityScheme' => $securityScheme ?? Generator::UNDEFINED,
                 'type' => $type ?? Generator::UNDEFINED,
-                'description' => $description ?? Generator::UNDEFINED,
+                'description' => $description,
                 'name' => $name ?? Generator::UNDEFINED,
                 'in' => $in ?? Generator::UNDEFINED,
                 'bearerFormat' => $bearerFormat ?? Generator::UNDEFINED,

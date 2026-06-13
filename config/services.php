@@ -41,5 +41,13 @@ return [
         'return_url_commande' => env('PAWAPAY_RETURN_COMMANDE_URL'),
     ],
 
+    'geniuspay' => [
+        'api_key' => env('GENIUSPAY_API_KEY'),
+        'api_secret' => env('GENIUSPAY_API_SECRET'),
+        'base_url' => env('GENIUSPAY_BASE_URL'),
+        'callback_url' => env('GENIUSPAY_CALLBACK_URL'),
+        'return_url' => env('GENIUSPAY_RETURN_URL'),
+    ],
+
 
 ];

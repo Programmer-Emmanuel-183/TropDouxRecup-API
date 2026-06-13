@@ -90,7 +90,7 @@ class Filesystem
                 if (flock($handle, LOCK_SH)) {
                     clearstatcache(true, $path);
 
-                    $contents = fread($handle, $this->size($path) ?: 1);
+                    $contents = stream_get_contents($handle);
 
                     flock($handle, LOCK_UN);
                 }
@@ -223,9 +223,9 @@ class Filesystem
 
         // Fix permissions of tempPath because `tempnam()` creates it with permissions set to 0600...
         if (! is_null($mode)) {
-            chmod($tempPath, $mode);
+            @chmod($tempPath, $mode);
         } else {
-            chmod($tempPath, 0777 - umask());
+            @chmod($tempPath, 0777 - umask());
         }
 
         file_put_contents($tempPath, $content);
@@ -431,7 +431,7 @@ class Filesystem
     }
 
     /**
-     * Guess the file extension from the mime-type of a given file.
+     * Guess the file extension from the MIME type of a given file.
      *
      * @param  string  $path
      * @return string|null
@@ -453,7 +453,7 @@ class Filesystem
      * Get the file type of a given file.
      *
      * @param  string  $path
-     * @return string
+     * @return string|false
      */
     public function type($path)
     {
@@ -461,7 +461,7 @@ class Filesystem
     }
 
     /**
-     * Get the mime-type of a given file.
+     * Get the MIME type of a given file.
      *
      * @param  string  $path
      * @return string|false
