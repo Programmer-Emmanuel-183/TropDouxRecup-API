@@ -3,8 +3,9 @@
 namespace Illuminate\JsonSchema;
 
 use Closure;
+use Illuminate\Contracts\JsonSchema\JsonSchema as JsonSchemaContract;
 
-class JsonSchemaTypeFactory extends JsonSchema
+class JsonSchemaTypeFactory extends JsonSchema implements JsonSchemaContract
 {
     /**
      * Create a new object schema instance.
@@ -58,5 +59,15 @@ class JsonSchemaTypeFactory extends JsonSchema
     public function boolean(): Types\BooleanType
     {
         return new Types\BooleanType;
+    }
+
+    /**
+     * Create a new multi-type union instance.
+     *
+     * @param  array<int, string>  $types
+     */
+    public function union(array $types): Types\UnionType
+    {
+        return new Types\UnionType($types);
     }
 }

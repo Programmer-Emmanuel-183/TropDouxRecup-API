@@ -6,9 +6,9 @@
 
 namespace OpenApi\Annotations;
 
+use OpenApi\Annotations as OA;
 use OpenApi\Context;
 use OpenApi\Generator;
-use OpenApi\Annotations as OA;
 use OpenApi\OpenApiException;
 use OpenApi\Util;
 use Symfony\Component\Yaml\Yaml;
@@ -353,7 +353,7 @@ abstract class AbstractAnnotation implements \JsonSerializable
         if (isset($data->ref)) {
             // Only specific https://github.com/OAI/OpenAPI-Specification/blob/3.1.0/versions/3.1.0.md#reference-object
             $ref = ['$ref' => $data->ref];
-            if ($this->_context->isVersion('3.1.x')) {
+            if (!$this->_context->isVersion('3.0.x')) {
                 foreach (['summary', 'description'] as $prop) {
                     if (property_exists($data, $prop)) {
                         $ref[$prop] = $data->{$prop};
@@ -362,7 +362,7 @@ abstract class AbstractAnnotation implements \JsonSerializable
             }
             if (property_exists($this, 'nullable') && $this->nullable === true) {
                 $ref = ['oneOf' => [$ref]];
-                if ($this->_context->isVersion('3.1.x')) {
+                if (!$this->_context->isVersion('3.0.x')) {
                     $ref['oneOf'][] = ['type' => 'null'];
                 } else {
                     $ref['nullable'] = $data->nullable;
@@ -397,9 +397,20 @@ abstract class AbstractAnnotation implements \JsonSerializable
                     }
                 }
             }
+
+            if (isset($data->type) && is_array($data->type)) {
+                if (1 === count($data->type)) {
+                    $data->type = array_pop($data->type);
+                } else {
+                    unset($data->type);
+                }
+            }
+
+            unset($data->unevaluatedProperties);
+            unset($data->unevaluatedItems);
         }
 
-        if ($this->_context->isVersion('3.1.x')) {
+        if (!$this->_context->isVersion('3.0.x')) {
             if (isset($data->nullable)) {
                 if (true === $data->nullable) {
                     if (isset($data->oneOf)) {
@@ -498,7 +509,7 @@ abstract class AbstractAnnotation implements \JsonSerializable
                 } elseif (Generator::isDefault($item->{$keyField})) {
                     $this->_context->logger->error($item->identity() . ' is missing key-field: "' . $keyField . '" in ' . $item->_context);
                 } elseif (isset($keys[$item->{$keyField}])) {
-                    $this->_context->logger->error('Multiple ' . $item->_identity([]) . ' with the same ' . $keyField . '="' . $item->{$keyField} . "\":\n  " . $item->_context . "\n  " . $keys[$item->{$keyField}]->_context);
+                    $this->_context->logger->error('Multiple ' . $item->identity([]) . ' with the same ' . $keyField . '="' . $item->{$keyField} . "\":\n  " . $item->_context . "\n  " . $keys[$item->{$keyField}]->_context);
                 } else {
                     $keys[$item->{$keyField}] = $item;
                 }
@@ -607,24 +618,37 @@ abstract class AbstractAnnotation implements \JsonSerializable
     }
 
     /**
-     * Return a identity for easy debugging.
-     * Example: "@OA\Get(path="/pets")".
+     * Return a simple string representation of the annotation.
+     *
+     * @param array|null $properties the properties to include in the string representation
+     * @example "@OA\Response(response=200)"
      */
-    public function identity(): string
+    public function identity(?array $properties = null): string
     {
-        $class = get_class($this);
-        $properties = [];
-        /** @var class-string<AbstractAnnotation> $parent */
-        foreach (static::$_parents as $parent) {
-            foreach ($parent::$_nested as $annotationClass => $entry) {
-                if ($annotationClass === $class && is_array($entry) && !Generator::isDefault($this->{$entry[1]})) {
-                    $properties[] = $entry[1];
-                    break 2;
+        $class = static::class;
+
+        if (null === $properties) {
+            $properties = [];
+            /** @var class-string<AbstractAnnotation> $parent */
+            foreach (static::$_parents as $parent) {
+                foreach ($parent::$_nested as $annotationClass => $entry) {
+                    if ($annotationClass === $class && is_array($entry) && !Generator::isDefault($this->{$entry[1]})) {
+                        $properties[] = $entry[1];
+                        break 2;
+                    }
                 }
             }
         }
 
-        return $this->_identity($properties);
+        $details = [];
+        foreach ($properties as $property) {
+            $value = $this->{$property};
+            if ($value !== null && !Generator::isDefault($value)) {
+                $details[] = $property . '=' . (is_string($value) ? '"' . $value . '"' : $value);
+            }
+        }
+
+        return Util::shorten(static::class) . '(' . implode(',', $details) . ')';
     }
 
     /**
@@ -672,22 +696,6 @@ abstract class AbstractAnnotation implements \JsonSerializable
     public function isRoot(string $rootClass): bool
     {
         return get_class($this) === $rootClass || $this->getRoot() === $rootClass;
-    }
-
-    /**
-     * Helper for generating the identity().
-     */
-    protected function _identity(array $properties): string
-    {
-        $fields = [];
-        foreach ($properties as $property) {
-            $value = $this->{$property};
-            if ($value !== null && !Generator::isDefault($value)) {
-                $fields[] = $property . '=' . (is_string($value) ? '"' . $value . '"' : $value);
-            }
-        }
-
-        return Util::shorten(get_class($this)) . '(' . implode(',', $fields) . ')';
     }
 
     /**
