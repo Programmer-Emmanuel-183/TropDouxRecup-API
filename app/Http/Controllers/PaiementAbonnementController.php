@@ -85,7 +85,7 @@ class PaiementAbonnementController extends Controller
             ];
 
             $response = Http::withToken(config('services.pawapay.api_key'))
-                ->post('https://api.sandbox.pawapay.io/v2/paymentpage', $payload);
+                ->post('https://api.pawapay.io/v2/paymentpage', $payload);
 
             $result = $response->json();
 
@@ -163,7 +163,7 @@ class PaiementAbonnementController extends Controller
 
         // 🔹 3. Appel Pawapay
         $response = Http::withToken(config('services.pawapay.api_key'))
-            ->get("https://api.sandbox.pawapay.io/v2/deposits/{$depositId}");
+            ->get("https://api.pawapay.io/v2/deposits/{$depositId}");
 
         $result = $response->json();
 

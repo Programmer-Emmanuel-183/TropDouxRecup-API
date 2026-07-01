@@ -22,7 +22,7 @@ class RetraitMarchandController extends Controller
                 'Authorization' => 'Bearer ' . config('services.pawapay.api_key'),
                 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
-            ])->get('https://api.sandbox.pawapay.io/v2/active-conf', [
+            ])->get('https://api.pawapay.io/v2/active-conf', [
                 'country' => 'CIV',
                 'operationType' => 'PAYOUT'
             ]);
@@ -132,7 +132,7 @@ class RetraitMarchandController extends Controller
                     ];
 
                     $response = Http::withToken(config('services.pawapay.api_key'))
-                        ->post('https://api.sandbox.pawapay.io/v2/payouts', $payload);
+                        ->post('https://api.pawapay.io/v2/payouts', $payload);
 
                     $result = $response->json();
 
@@ -192,7 +192,7 @@ class RetraitMarchandController extends Controller
 
         try {
             $response = Http::withToken(config('services.pawapay.api_key'))
-                ->get("https://api.sandbox.pawapay.io/v2/payouts/{$payoutId}");
+                ->get("https://api.pawapay.io/v2/payouts/{$payoutId}");
 
             $result = $response->json();
             $data = $result['data'] ?? null;

@@ -87,7 +87,7 @@ class RetraitAdminController extends Controller
                     ];
 
                     $response = Http::withToken(config('services.pawapay.api_key'))
-                        ->post('https://api.sandbox.pawapay.io/v2/payouts', $payload);
+                        ->post('https://api.pawapay.io/v2/payouts', $payload);
 
                     $result = $response->json();
 
@@ -144,7 +144,7 @@ class RetraitAdminController extends Controller
 
         try {
             $response = Http::withToken(config('services.pawapay.api_key'))
-                ->get("https://api.sandbox.pawapay.io/v2/payouts/{$payoutId}");
+                ->get("https://api.pawapay.io/v2/payouts/{$payoutId}");
 
             $result = $response->json();
             $data = $result['data'] ?? null;
