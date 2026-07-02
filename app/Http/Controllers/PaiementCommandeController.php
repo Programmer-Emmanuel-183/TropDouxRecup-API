@@ -76,7 +76,7 @@ class PaiementCommandeController extends Controller
 
             // 🧾 Création commande principale
             $commande = new Commande();
-            $commande->statut = 'pending';
+            $commande->statut = 'pending_payment';
             $commande->save();
 
             $totalPrix = 0;
@@ -86,9 +86,7 @@ class PaiementCommandeController extends Controller
             foreach ($paniers as $panier) {
                 $plat = $panier->plat;
 
-                // 🔻 Mise à jour stock
-                $plat->quantite_disponible -= $panier->quantite;
-                $plat->save();
+               
 
                 // 🔹 Sous-commande
                 $sous = new SousCommande();
@@ -97,7 +95,7 @@ class PaiementCommandeController extends Controller
                 $sous->id_plat = $plat->id;
                 $sous->id_marchand = $plat->id_marchand;
                 $sous->quantite_plat = $panier->quantite;
-                $sous->statut = 'pending';
+                $sous->statut = 'pending_payment';
                 $sous->commission = 0; // calculé plus tard si nécessaire
                 $sous->code_commande = "TDR-" . strtoupper(substr($commande->id, 0, 6));
                 $sous->code_qr = 'data:image/svg+xml;base64,' . base64_encode(QrCode::format('svg')->size(200)->generate($sous->code_commande));
@@ -202,7 +200,7 @@ class PaiementCommandeController extends Controller
 
         $result = $response->json();
 
-        if ($response->failed() || ($result['status'] ?? null) === 'REJECTED') {
+        if ($response->failed() || ($result['status'] ?? null) === 'REJECTED') { 
             $paiement->update(['statut' => 'failed', 'data' => $result]);
             return response()->json(['success' => false, 'message' => 'Paiement échoué'], 422);
         }
@@ -219,12 +217,31 @@ class PaiementCommandeController extends Controller
                 'data' => $result
             ]);
 
-            
-
             $commande = Commande::with([
                 'sousCommandes.plat.marchand.abonnement',
                 'client'
             ])->find($paiement->id_commande);
+
+            if (!$commande) {
+                throw new \Exception("Commande introuvable.");
+            }
+
+            // 🔻 Décrémentation du stock
+            foreach ($commande->sousCommandes as $sousCommande) {
+
+                $plat = Plat::lockForUpdate()->find($sousCommande->id_plat);
+
+                if (!$plat) {
+                    throw new \Exception("Le plat n'existe plus.");
+                }
+
+                if ($plat->quantite_disponible < $sousCommande->quantite_plat) {
+                    throw new \Exception("Stock insuffisant pour {$plat->nom_plat}.");
+                }
+
+                $plat->decrement('quantite_disponible', $sousCommande->quantite_plat);
+            }
+
 
             // Récupérer tous les admins (role = 2)
             $admins = Admin::where('role', 2)->get();
@@ -243,6 +260,11 @@ class PaiementCommandeController extends Controller
             if (!$commande) return;
 
             $commande->update(['statut' => 'pending']);
+
+            SousCommande::where('id_commande', $commande->id)
+            ->update([
+                'statut' => 'pending'
+            ]);
 
             $admin = Admin::where('role', 2)->first();
 
@@ -324,6 +346,7 @@ class PaiementCommandeController extends Controller
 
             app(PushNotifController::class)->sendPush($notif);
         }
+        
 
         return response()->json([
             'success' => true,
