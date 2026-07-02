@@ -192,7 +192,47 @@ class PaiementCommandeController extends Controller
         }
 
         if ($paiement->statut === 'completed') {
-            return response()->json(['success' => true, 'message' => 'Paiement déjà vérifié'], 200);
+
+            $commande = Commande::with(['sousCommandes.plat.marchand'])
+                ->find($paiement->id_commande);
+
+            $client = $paiement->client;
+
+            $dishes = [];
+            $totalPrice = 0;
+            $totalQuantity = 0;
+
+            foreach ($commande->sousCommandes as $sc) {
+                $plat = $sc->plat;
+
+                $dishes[] = [
+                    'id' => $plat->id,
+                    'name' => $plat->nom_plat,
+                    'quantity' => $sc->quantite_plat,
+                    'unit_price' => $plat->prix_reduit,
+                    'code_qr' => $sc->code_qr ?? null,
+                ];
+
+                $totalPrice += ($plat->prix_reduit * $sc->quantite_plat);
+                $totalQuantity += $sc->quantite_plat;
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'id' => $commande->id,
+                    'orderId' => $commande->sousCommandes->first()?->code_commande,
+                    'customerName' => $client?->nom_client,
+                    'status' => $commande->statut,
+                    'createdAt' => $commande->created_at,
+                    'commission' => Commission::first()?->pourcentage ?? 0,
+                    'totalPriceOrder' => $totalPrice,
+                    'orderLength' => $totalQuantity,
+                    'completedAt' => null,
+                    'dishes' => $dishes
+                ],
+                'message' => 'Paiement déjà vérifié'
+            ], 200);
         }
 
         $response = Http::withToken(config('services.pawapay.api_key'))
@@ -362,8 +402,42 @@ class PaiementCommandeController extends Controller
         }
         
 
+        $commande = Commande::with(['sousCommandes.plat.marchand'])->find($paiement->id_commande);
+        $client = $paiement->client;
+
+        $dishes = [];
+        $totalPrice = 0;
+        $totalQuantity = 0;
+
+        foreach ($commande->sousCommandes as $sc) {
+            $plat = $sc->plat;
+
+            $dishes[] = [
+                'id' => $plat->id,
+                'name' => $plat->nom_plat,
+                'quantity' => $sc->quantite_plat,
+                'unit_price' => $plat->prix_reduit,
+                'code_qr' => $sc->code_qr ?? null,
+            ];
+
+            $totalPrice += ($plat->prix_reduit * $sc->quantite_plat);
+            $totalQuantity += $sc->quantite_plat;
+        }
+
         return response()->json([
             'success' => true,
+            'data' => [
+                'id' => $commande->id,
+                'orderId' => $commande->sousCommandes->first()?->code_commande,
+                'customerName' => $client?->nom_client,
+                'status' => $commande->statut,
+                'createdAt' => $commande->created_at,
+                'commission' => Commission::first()?->pourcentage ?? 0,
+                'totalPriceOrder' => $totalPrice,
+                'orderLength' => $totalQuantity,
+                'completedAt' => null,
+                'dishes' => $dishes
+            ],
             'message' => 'Paiement vérifié avec succès'
         ], 200);
     }
