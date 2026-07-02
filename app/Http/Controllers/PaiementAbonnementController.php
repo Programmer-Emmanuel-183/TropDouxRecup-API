@@ -348,9 +348,9 @@ class PaiementAbonnementController extends Controller
         // 🔔 Envoi mail aux admins
         $admins = Admin::pluck('email_admin')->toArray();
 
-        Mail::to($admins)->send(
-            new NouvelAbonnementMarchandMail($marchand, $abonnement, $paiement)
-        );
+        // Mail::to($admins)->send(
+        //     new NouvelAbonnementMarchandMail($marchand, $abonnement, $paiement)
+        // );
 
         if ($marchand->device_token !== null) {
 

@@ -260,9 +260,9 @@ class PaiementCommandeController extends Controller
             // Récupérer tous les admins (role = 2)
             $admins = Admin::where('role', 2)->first();
 
-            foreach ($admins as $admin) {
-                Mail::to($admin->email_admin)->send(new NouvelleCommandePayee($commande, $commande->client));
-            }
+            // foreach ($admins as $admin) {
+            //     Mail::to($admin->email_admin)->send(new NouvelleCommandePayee($commande, $commande->client));
+            // }
 
             // 🧹 Nettoyage panier UNIQUEMENT si paiement validé
             if ($commande && $commande->client) {

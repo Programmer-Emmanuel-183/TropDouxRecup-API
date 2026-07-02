@@ -137,9 +137,9 @@ class CallbackPawapayController extends Controller
 
                 $admins = Admin::pluck('email_admin')->toArray();
 
-                Mail::to($admins)->send(
-                    new NouvelAbonnementMarchandMail($marchand, $abonnement, $paiementAbonnement)
-                );
+                // Mail::to($admins)->send(
+                //     new NouvelAbonnementMarchandMail($marchand, $abonnement, $paiementAbonnement)
+                // );
 
                 if ($marchand->device_token) {
 
@@ -232,9 +232,9 @@ class CallbackPawapayController extends Controller
                 // Récupérer tous les admins (role = 2)
                 $admins = Admin::where('role', 2)->get();
 
-                foreach ($admins as $admin) {
-                    Mail::to($admin->email_admin)->send(new NouvelleCommandePayee($commande, $commande->client));
-                }
+                // foreach ($admins as $admin) {
+                //     Mail::to($admin->email_admin)->send(new NouvelleCommandePayee($commande, $commande->client));
+                // }
 
                 if (!$commande) return;
 
