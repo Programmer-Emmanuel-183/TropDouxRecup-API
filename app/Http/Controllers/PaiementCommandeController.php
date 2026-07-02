@@ -205,6 +205,19 @@ class PaiementCommandeController extends Controller
             return response()->json(['success' => false, 'message' => 'Paiement échoué'], 422);
         }
 
+        $paiement->update(['statut' => 'failed', 'data' => $result]);
+
+        // Mettre la commande et les sous-commandes en échec
+
+        Commande::where('id', $paiement->id_commande)->update(['statut' => 'failed']);
+        SousCommande::where('id_commande', $paiement->id_commande)
+            ->update(['statut' => 'failed']);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Paiement échoué'
+        ], 422);
+
         if (($result['data']['status'] ?? null) !== 'COMPLETED') {
             $paiement->update(['statut' => 'pending', 'data' => $result]);
             return response()->json(['success' => false, 'message' => 'Paiement non finalisé'], 200);

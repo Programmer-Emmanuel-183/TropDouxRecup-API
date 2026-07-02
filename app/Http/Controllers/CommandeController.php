@@ -228,8 +228,6 @@ class CommandeController extends Controller
     }
 
 
-
-
     public function commandes_client(Request $request){
         try {
             // 🔹 Client authentifié
@@ -252,6 +250,8 @@ class CommandeController extends Controller
                         'total_commandes' => 0,
                         'total_completed' => 0,
                         'total_pending' => 0,
+                        'total_en_attente_paiement' => 0,
+                        'total_echouees' => 0
                     ],
                     'message' => 'Aucune commande trouvée.'
                 ], 200);
@@ -263,21 +263,19 @@ class CommandeController extends Controller
 
             foreach ($grouped as $commandeId => $items) {
 
-                // 🔹 Statut calculé
+                $commande = Commande::find($commandeId);
+
+                if (!$commande) {
+                    continue;
+                }
+
+                if ($statut && $commande->statut !== $statut) {
+                    continue;
+                }
+
                 $allRecovered = $items->every(
                     fn ($i) => $i->date_de_recuperation !== null
                 );
-
-                // 🔹 Filtrage par statut (comme marchand)
-                if ($statut === 'completed' && !$allRecovered) {
-                    continue;
-                }
-
-                if ($statut === 'pending' && $allRecovered) {
-                    continue;
-                }
-
-                $commande = Commande::find($commandeId);
                 $orderId = $items->first()->code_commande;
 
                 $dishes = [];
@@ -322,9 +320,24 @@ class CommandeController extends Controller
             $totalCommandes = 0;
             $totalCompleted = 0;
             $totalPending = 0;
+            $totalPendingPayment = 0;
+            $totalFailed = 0;
 
-            foreach ($grouped as $items) {
+           foreach ($grouped as $commandeId => $items) {
+
+                $commande = Commande::find($commandeId);
+
                 $totalCommandes++;
+
+                if ($commande->statut === 'pending_payment') {
+                    $totalPendingPayment++;
+                    continue;
+                }
+
+                if ($commande->statut === 'failed') {
+                    $totalFailed++;
+                    continue;
+                }
 
                 $allRecovered = $items->every(
                     fn ($i) => $i->date_de_recuperation !== null
@@ -344,6 +357,8 @@ class CommandeController extends Controller
                     'total_commandes' => $totalCommandes,
                     'total_recuperees' => $totalCompleted,
                     'total_en_attente' => $totalPending,
+                    'total_en_attente_paiement' => $totalPendingPayment,
+                    'total_echouees' => $totalFailed,
                 ],
                 'message' => 'Commandes du client affichées avec succès'
             ], 200);
@@ -383,7 +398,9 @@ class CommandeController extends Controller
                     'external_data' => [
                         'total_commandes' => 0,
                         'total_recuperees' => 0,
-                        'total_en_attente' => 0
+                        'total_en_attente' => 0,
+                        'total_en_attente_paiement' => 0,
+                        'total_echouees' => 0,
                     ],
                 ], 200);
             }
@@ -395,19 +412,19 @@ class CommandeController extends Controller
             foreach ($grouped as $commandeId => $items) {
 
                 // 🔹 Statut calculé
-                $allRecovered = $items->every(fn ($i) => $i->date_de_recuperation !== null);
-
-                // 🔹 Filtrage par statut (SANS changer la réponse)
-                if ($statut === 'completed' && !$allRecovered) {
-                    continue;
-                }
-
-                if ($statut === 'pending' && $allRecovered) {
-                    continue;
-                }
-
                 $commande = Commande::find($commandeId);
 
+                if (!$commande) {
+                    continue;
+                }
+
+                if ($statut && $commande->statut !== $statut) {
+                    continue;
+                }
+
+                $allRecovered = $items->every(
+                    fn ($i) => $i->date_de_recuperation !== null
+                );
                 $orderId = $items->first()->code_commande;
                 $commission = $items->first()->commission ?? 0;
                 $clientName = $items->first()->client->nom_client ?? '';
@@ -450,17 +467,52 @@ class CommandeController extends Controller
                 ];
             }
 
+            $totalCommandes = 0;
+            $totalRecuperees = 0;
+            $totalEnAttente = 0;
+            $totalPendingPayment = 0;
+            $totalEchouees = 0;
+
+            foreach ($grouped as $commandeId => $items) {
+
+                $commande = Commande::find($commandeId);
+
+                if (!$commande) {
+                    continue;
+                }
+
+                $totalCommandes++;
+
+                if ($commande->statut === 'pending_payment') {
+                    $totalPendingPayment++;
+                    continue;
+                }
+
+                if ($commande->statut === 'failed') {
+                    $totalEchouees++;
+                    continue;
+                }
+
+                $allRecovered = $items->every(
+                    fn ($i) => $i->date_de_recuperation !== null
+                );
+
+                if ($allRecovered) {
+                    $totalRecuperees++;
+                } else {
+                    $totalEnAttente++;
+                }
+            }
+
             return response()->json([
                 'success' => true,
                 'data' => array_values($result), // reindex propre
                 'external_data' => [
-                    'total_commandes' => count($result),
-                    'total_recuperees' => collect($sousCommandes)
-                        ->filter(fn ($c) => $c->date_de_recuperation !== null)
-                        ->count(),
-                    'total_en_attente' => collect($sousCommandes)
-                        ->filter(fn ($c) => $c->date_de_recuperation === null)
-                        ->count(),
+                    'total_commandes' => $totalCommandes,
+                    'total_recuperees' => $totalRecuperees,
+                    'total_en_attente' => $totalEnAttente,
+                    'total_en_attente_paiement' => $totalPendingPayment,
+                    'total_echouees' => $totalEchouees,
                 ],
                 'message' => 'Commandes du marchand affiché avec succès'
             ], 200);
