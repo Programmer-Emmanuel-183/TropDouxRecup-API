@@ -13,6 +13,7 @@ use App\Models\Panier;
 use App\Models\Plat;
 use App\Models\SousCommande;
 use App\Models\Notification;
+use App\Models\Transaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -372,6 +373,24 @@ class PaiementCommandeController extends Controller
 
                 // 🔥 Incrément solde marchand
                 $marchand->increment('solde_marchand', $partMarchand);
+
+                $codeCommande = $sousCommandes->first()->code_commande;
+
+                // Vérifier qu'elle n'existe pas déjà
+                $alreadyCredited = Transaction::where('libelle', "Commande #{$codeCommande}")
+                    ->where('id_user', $marchand->id)
+                    ->exists();
+
+                if (!$alreadyCredited) {
+
+                    Transaction::create([
+                        'amount'   => $partMarchand,
+                        'type'     => 'credit',
+                        'libelle'  => "Commande #{$codeCommande}",
+                        'id_user'  => $marchand->id,
+                    ]);
+
+                }
 
                 // 🔥 Stocker commission sur sous_commandes
                 foreach ($sousCommandes as $sc) {

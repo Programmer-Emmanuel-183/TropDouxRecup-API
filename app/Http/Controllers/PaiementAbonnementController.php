@@ -97,17 +97,6 @@ class PaiementAbonnementController extends Controller
                 ], 422);
             }
 
-            if($marchand->device_token !== null){
-                $notification_marchand = new Notification();
-                $notification_marchand->type = 'abonnement';
-                $notification_marchand->title = "Paiement en cours ⏳";
-                $notification_marchand->body = "Votre demande d’abonnement {$abonnement->type_abonnement} est en cours de traitement. Veuillez patientez le temps que votre compte soit mis à jour.";
-                $notification_marchand->role = 'marchand';
-                $notification_marchand->id_user = $marchand->id;
-                $notification_marchand->save();
-                app(PushNotifController::class)->sendPush($notification_marchand);
-            }
-
 
             return response()->json([
                 'success' => true,
@@ -371,6 +360,8 @@ class PaiementAbonnementController extends Controller
 
             app(PushNotifController::class)->sendPush($notification_marchand);
         }
+
+        
 
 
         return response()->json([

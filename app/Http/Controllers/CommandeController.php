@@ -603,29 +603,7 @@ class CommandeController extends Controller
                 ], 404);
             }
 
-            // 🔔 Notification client
-            if ($client->device_token !== null) {
-                $notification_client = new Notification();
-                $notification_client->type = 'commande_recuperation';
-                $notification_client->title = 'Votre commande a été récupérée avec succès 🎉';
-                $notification_client->body = "Votre commande #{$codeCommande} a bien été récupérée chez {$marchand->nom_marchand}. Merci pour votre confiance 🙏";
-                $notification_client->role = 'client';
-                $notification_client->id_user = $client->id;
-                $notification_client->save();
-                app(PushNotifController::class)->sendPush($notification_client);
-            }
-
-            // 🔔 Notification marchand
-            if ($marchand->device_token !== null) {
-                $notification_marchand = new Notification();
-                $notification_marchand->type = 'commande_recuperation';
-                $notification_marchand->title = "Commande #{$codeCommande} récupérée avec succès ✅";
-                $notification_marchand->body = "Le client {$client->nom_client} a récupéré sa commande avec succès.";
-                $notification_marchand->role = 'marchand';
-                $notification_marchand->id_user = $marchand->id;
-                $notification_marchand->save();
-                app(PushNotifController::class)->sendPush($notification_marchand);
-            }
+            
 
             // 🔹 Vérifier si déjà crédité
             $alreadyCredited = Transaction::where('libelle', "Commande #{$codeCommande}")
@@ -672,6 +650,30 @@ class CommandeController extends Controller
                 $transaction->libelle = "Commande #{$codeCommande}";
                 $transaction->id_user = $marchand->id;
                 $transaction->save();
+
+                // 🔔 Notification client
+                if ($client->device_token !== null) {
+                    $notification_client = new Notification();
+                    $notification_client->type = 'commande_recuperation';
+                    $notification_client->title = 'Votre commande a été récupérée avec succès 🎉';
+                    $notification_client->body = "Votre commande #{$codeCommande} a bien été récupérée chez {$marchand->nom_marchand}. Merci pour votre confiance 🙏";
+                    $notification_client->role = 'client';
+                    $notification_client->id_user = $client->id;
+                    $notification_client->save();
+                    app(PushNotifController::class)->sendPush($notification_client);
+                }
+
+                // 🔔 Notification marchand
+                if ($marchand->device_token !== null) {
+                    $notification_marchand = new Notification();
+                    $notification_marchand->type = 'commande_recuperation';
+                    $notification_marchand->title = "Commande #{$codeCommande} récupérée avec succès ✅";
+                    $notification_marchand->body = "Le client {$client->nom_client} a récupéré sa commande avec succès.";
+                    $notification_marchand->role = 'marchand';
+                    $notification_marchand->id_user = $marchand->id;
+                    $notification_marchand->save();
+                    app(PushNotifController::class)->sendPush($notification_marchand);
+                }
             }
 
             return response()->json([

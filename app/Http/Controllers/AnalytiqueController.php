@@ -146,6 +146,12 @@ class AnalytiqueController extends Controller
                 ];
             });
 
+            $economiesClientsMois = DB::table('sous_commandes')
+            ->join('plats', 'plats.id', '=', 'sous_commandes.id_plat')
+            ->where('sous_commandes.id_marchand', $marchandId)
+            ->whereBetween('sous_commandes.created_at', [$startMonth, $endMonth])
+            ->sum(DB::raw('(plats.prix_origine - plats.prix_reduit) * sous_commandes.quantite_plat'));
+
             $bestDay = $stats->sortByDesc('revenu')->first();
 
             /** ===============================
@@ -199,7 +205,7 @@ class AnalytiqueController extends Controller
 
             if ($hasDashboardFull) {
                 $responseData['pie_datas'] = $pieDatas;
-                $responseData['economies_clients_mois'] = 0;
+                $responseData['economies_clients_mois'] = (int) $economiesClientsMois;
                 $responseData['best_day'] = $bestDay ? [
                     'day' => Carbon::parse($bestDay->day)->translatedFormat('l'),
                     'revenu' => (int) $bestDay->revenu,
