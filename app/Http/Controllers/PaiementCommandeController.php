@@ -211,7 +211,6 @@ class PaiementCommandeController extends Controller
                     'name' => $plat->nom_plat,
                     'quantity' => $sc->quantite_plat,
                     'unit_price' => $plat->prix_reduit,
-                    'code_qr' => $sc->code_qr ?? null,
                 ];
 
                 $totalPrice += ($plat->prix_reduit * $sc->quantite_plat);
@@ -223,13 +222,15 @@ class PaiementCommandeController extends Controller
                 'data' => [
                     'id' => $commande->id,
                     'orderId' => $commande->sousCommandes->first()?->code_commande,
-                    'customerName' => $client?->nom_client,
+                    'merchantName' =>  $commande->sousCommandes->first()?->marchand->nom_marchand,
+                    'localite' => $commande->sousCommandes->first()?->marchand->commune->localite,
+                    'merchant_image' => $commande->sousCommandes->first()?->marchand->image_marchand,
                     'status' => $commande->statut,
                     'createdAt' => $commande->created_at,
                     'commission' => Commission::first()?->pourcentage ?? 0,
                     'totalPriceOrder' => $totalPrice,
-                    'orderLength' => $totalQuantity,
                     'completedAt' => null,
+                    'code_qr' => $commande->sousCommandes->first()?->code_qr,
                     'dishes' => $dishes
                 ],
                 'message' => 'Paiement déjà vérifié'
@@ -241,7 +242,7 @@ class PaiementCommandeController extends Controller
 
         $result = $response->json();
 
-        if ($response->failed() || ($result['status'] ?? null) === 'REJECTED') { 
+        if ($response->failed() || ($result['status'] ?? null) === 'REJECTED' || ($result['status'] ?? null) === 'NOT_FOUND') { 
             $paiement->update(['statut' => 'failed', 'data' => $result]);
 
             // Mettre la commande et les sous-commandes en échec
@@ -341,6 +342,33 @@ class PaiementCommandeController extends Controller
 
                 $marchand = $sousCommandes->first()->plat->marchand;
 
+                if (!$marchand || !$marchand->device_token) continue;
+
+                $codeCommande = $sousCommandes->first()->code_commande;
+
+                // 🔥 IMPORTANT : éviter double notif
+                $notifExists = Notification::where([
+                    'type' => 'commande',
+                    'role' => 'marchand',
+                    'id_user' => $marchand->id,
+                ])
+                ->where('body', 'like', "%{$codeCommande}%")
+                ->exists();
+
+                if ($notifExists) continue;
+
+                $notif = Notification::create([
+                    'type'    => 'commande',
+                    'title'   => 'Nouvelle commande 🎉',
+                    'body'    => "Vous avez reçu une nouvelle commande (#{$codeCommande}).",
+                    'role'    => 'marchand',
+                    'id_user' => $marchand->id,
+                ]);
+
+                app(PushNotifController::class)->sendPush($notif);
+
+                $marchand = $sousCommandes->first()->plat->marchand;
+
                 if (!$marchand) continue;
 
                 // 🔥 Détermination commission selon abonnement DU MARCHAND
@@ -420,6 +448,7 @@ class PaiementCommandeController extends Controller
             app(PushNotifController::class)->sendPush($notif);
         }
         
+        
 
         $commande = Commande::with(['sousCommandes.plat.marchand'])->find($paiement->id_commande);
         $client = $paiement->client;
@@ -448,7 +477,7 @@ class PaiementCommandeController extends Controller
             'data' => [
                 'id' => $commande->id,
                 'orderId' => $commande->sousCommandes->first()?->code_commande,
-                'customerName' => $client?->nom_client,
+                'merchantName' =>  $commande->sousCommandes->first()?->marchand->nom_marchand,
                 'status' => $commande->statut,
                 'createdAt' => $commande->created_at,
                 'commission' => Commission::first()?->pourcentage ?? 0,

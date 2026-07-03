@@ -567,6 +567,20 @@ class CommandeController extends Controller
             $commandeId = $sousCommandes->first()->id_commande;
             $commande = Commande::find($commandeId);
 
+            if (!$commande) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Commande introuvable.'
+                ], 404);
+            }
+
+            if ($commande->statut === 'completed') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cette commande a déjà été récupérée.'
+                ], 409); // ou 400 selon ton API
+            }
+
             $allRecovered = SousCommande::where('id_commande', $commandeId)
                 ->whereNull('date_de_recuperation')
                 ->doesntExist();
@@ -652,7 +666,10 @@ class CommandeController extends Controller
                 $transaction->id_user = $marchand->id;
                 $transaction->save();
 
-                // 🔔 Notification client
+                
+            }
+
+            // 🔔 Notification client
                 if ($client->device_token !== null) {
                     $notification_client = new Notification();
                     $notification_client->type = 'commande_recuperation';
@@ -675,7 +692,6 @@ class CommandeController extends Controller
                     $notification_marchand->save();
                     app(PushNotifController::class)->sendPush($notification_marchand);
                 }
-            }
 
             return response()->json([
                 'success' => true,
