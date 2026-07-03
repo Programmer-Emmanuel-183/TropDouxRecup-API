@@ -26,6 +26,7 @@ class AnalytiqueController extends Controller
             $commandes = DB::table('sous_commandes')
                 ->join('plats', 'plats.id', '=', 'sous_commandes.id_plat')
                 ->where('sous_commandes.id_marchand', $marchandId)
+                ->where('sous_commandes.statut', '!=', 'pending_payment')
                 ->whereBetween('sous_commandes.created_at', [$startMonth, $endMonth])
                 ->select(
                     'sous_commandes.code_commande',
@@ -46,6 +47,7 @@ class AnalytiqueController extends Controller
              * =============================== */
             $commandesMois = DB::table('sous_commandes')
                 ->where('id_marchand', $marchandId)
+                ->where('statut', '!=', 'pending_payment')
                 ->whereBetween('created_at', [$startMonth, $endMonth])
                 ->distinct('code_commande')
                 ->count('code_commande');
@@ -55,6 +57,7 @@ class AnalytiqueController extends Controller
              * =============================== */
             $clientsMois = DB::table('sous_commandes')
                 ->where('id_marchand', $marchandId)
+                ->where('statut', '!=', 'pending_payment')
                 ->whereBetween('created_at', [$startMonth, $endMonth])
                 ->distinct('id_client')
                 ->count('id_client');
@@ -64,12 +67,13 @@ class AnalytiqueController extends Controller
              * =============================== */
             $totalCommandes = DB::table('sous_commandes')
                 ->where('id_marchand', $marchandId)
+                ->where('statut', '!=', 'pending_payment')
                 ->distinct('code_commande')
                 ->count('code_commande');
 
             $commandesLivrees = DB::table('sous_commandes')
                 ->where('id_marchand', $marchandId)
-                ->where('statut', 'livré')
+                ->where('statut', 'completed')
                 ->distinct('code_commande')
                 ->count('code_commande');
 
@@ -84,6 +88,7 @@ class AnalytiqueController extends Controller
                 ->join('plats', 'plats.id', '=', 'sous_commandes.id_plat')
                 ->where('sous_commandes.id_marchand', $marchandId)
                 ->where('sous_commandes.created_at', '>=', now()->subDays(6))
+                ->where('sous_commandes.statut', '!=', 'pending_payment')
                 ->select(
                     'sous_commandes.code_commande',
                     'sous_commandes.created_at',
@@ -141,6 +146,7 @@ class AnalytiqueController extends Controller
             $plats = DB::table('sous_commandes')
                 ->join('plats', 'plats.id', '=', 'sous_commandes.id_plat')
                 ->where('sous_commandes.id_marchand', $marchandId)
+                ->where('sous_commandes.statut', '!=', 'pending_payment')
                 ->select(
                     'plats.nom_plat',
                     DB::raw('SUM(sous_commandes.quantite_plat) as total')
@@ -163,6 +169,7 @@ class AnalytiqueController extends Controller
             $economiesClientsMois = DB::table('sous_commandes')
             ->join('plats', 'plats.id', '=', 'sous_commandes.id_plat')
             ->where('sous_commandes.id_marchand', $marchandId)
+            ->where('sous_commandes.statut', '!=', 'pending_payment')
             ->whereBetween('sous_commandes.created_at', [$startMonth, $endMonth])
             ->sum(DB::raw('(plats.prix_origine - plats.prix_reduit) * sous_commandes.quantite_plat'));
 
