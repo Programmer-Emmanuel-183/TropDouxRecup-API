@@ -12,6 +12,8 @@ class AnalytiqueController extends Controller
 {
     public function analytique_marchand(Request $request){
         try {
+
+            Carbon::setLocale('fr');
             $marchand = $request->user(); // marchand connecté
             $marchandId = $marchand->id;
 
@@ -110,16 +112,26 @@ class AnalytiqueController extends Controller
                 ]);
             }
 
-            $maxRevenu = $stats->max('revenu') ?: 1;
+            $maxRevenu = max($stats->max('revenu') ?? 0, 1);
 
-            $statisticsDatas = $stats->map(function ($item, $index) use ($maxRevenu) {
-                return [
-                    'id' => (string) ($index + 1),
-                    'day' => Carbon::parse($item->day)->translatedFormat('D'),
-                    'revenu' => (int) $item->revenu,
-                    'progression_percent' => round(($item->revenu / $maxRevenu) * 100),
-                ];
-            });
+            $statisticsDatas = collect();
+
+            for ($i = 6; $i >= 0; $i--) {
+
+                $date = now()->subDays($i);
+                $dateKey = $date->format('Y-m-d');
+
+                $stat = $stats->firstWhere('day', $dateKey);
+
+                $revenu = $stat ? (int) $stat->revenu : 0;
+
+                $statisticsDatas->push([
+                    'id' => (string) (7 - $i),
+                    'day' => ucfirst($date->locale('fr')->translatedFormat('D')),
+                    'revenu' => $revenu,
+                    'progression_percent' => round(($revenu / $maxRevenu) * 100),
+                ]);
+            }
 
             /** ===============================
              *  PIE DATA
@@ -207,7 +219,7 @@ class AnalytiqueController extends Controller
                 $responseData['pie_datas'] = $pieDatas;
                 $responseData['economies_clients_mois'] = (int) $economiesClientsMois;
                 $responseData['best_day'] = $bestDay ? [
-                    'day' => Carbon::parse($bestDay->day)->translatedFormat('l'),
+                    'day' => ucfirst(Carbon::parse($bestDay->day)->locale('fr')->translatedFormat('l')),
                     'revenu' => (int) $bestDay->revenu,
                     'order_count' => $commandesMois,
                 ] : null;
