@@ -327,9 +327,10 @@ class MarchandController extends Controller
         }
 
         try{
-            $total_commande = SousCommande::where('id_marchand', $marchand->id)->where('statut', '!=', 'pending_payment')->count();
+            $total_commande = SousCommande::where('id_marchand', $marchand->id)->where('statut', '==', 'completed')->count();
             $commande_attente = SousCommande::where('id_marchand', $marchand->id)->where('statut', 'pending')->count();
             $today_vente = SousCommande::with('plat')
+                ->where('statut', '==', 'completed')
                 ->where('id_marchand', $marchand->id)
                 ->whereDate('created_at', today())
                 ->get()

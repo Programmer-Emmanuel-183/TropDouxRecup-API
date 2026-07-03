@@ -482,8 +482,6 @@ class CommandeController extends Controller
                     continue;
                 }
 
-                $totalCommandes++;
-
                 if ($commande->statut === 'pending_payment') {
                     $totalPendingPayment++;
                     continue;
@@ -493,6 +491,9 @@ class CommandeController extends Controller
                     $totalEchouees++;
                     continue;
                 }
+
+                // Ici il ne reste que pending et completed
+                $totalCommandes++;
 
                 $allRecovered = $items->every(
                     fn ($i) => $i->date_de_recuperation !== null
