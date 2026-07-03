@@ -332,6 +332,7 @@ class MarchandController extends Controller
             $today_vente = SousCommande::with('plat')
                 ->where('id_marchand', $marchand->id)
                 ->get()
+                ->where('created_at', today())
                 ->sum(function ($item) {
                     return $item->plat->prix_reduit ?? 0;
                 });
