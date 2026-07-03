@@ -12,8 +12,6 @@ class AnalytiqueController extends Controller
 {
     public function analytique_marchand(Request $request){
         try {
-
-            Carbon::setLocale('fr');
             $marchand = $request->user(); // marchand connecté
             $marchandId = $marchand->id;
 
@@ -112,13 +110,17 @@ class AnalytiqueController extends Controller
                 ]);
             }
 
+            Carbon::setLocale('fr');
+
             $maxRevenu = max($stats->max('revenu') ?? 0, 1);
 
             $statisticsDatas = collect();
 
-            for ($i = 6; $i >= 0; $i--) {
+            $startOfWeek = now()->startOfWeek(Carbon::MONDAY);
 
-                $date = now()->subDays($i);
+            for ($i = 0; $i < 7; $i++) {
+
+                $date = $startOfWeek->copy()->addDays($i);
                 $dateKey = $date->format('Y-m-d');
 
                 $stat = $stats->firstWhere('day', $dateKey);
@@ -126,8 +128,8 @@ class AnalytiqueController extends Controller
                 $revenu = $stat ? (int) $stat->revenu : 0;
 
                 $statisticsDatas->push([
-                    'id' => (string) (7 - $i),
-                    'day' => ucfirst($date->locale('fr')->translatedFormat('D')),
+                    'id' => (string) ($i + 1),
+                    'day' => ucfirst($date->translatedFormat('D')),
                     'revenu' => $revenu,
                     'progression_percent' => round(($revenu / $maxRevenu) * 100),
                 ]);
