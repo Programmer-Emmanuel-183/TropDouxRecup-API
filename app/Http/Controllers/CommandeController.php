@@ -382,6 +382,7 @@ class CommandeController extends Controller
             $query = SousCommande::with(['plat', 'client'])
                 ->where('id_marchand', $marchand->id)
                 ->where('statut', '!=', 'pending_payment')
+                ->where('statut', '!=', 'failed')
                 ->orderBy('created_at', 'desc');
 
             // 🔹 Limite
