@@ -308,9 +308,7 @@ class PaiementCommandeController extends Controller
 
             // 🧹 Nettoyage panier UNIQUEMENT si paiement validé
             if ($commande && $commande->client) {
-                Panier::where('id_client', $commande->client->id)
-                    ->whereIn('id_plat', $commande->sousCommandes->pluck('id_plat'))
-                    ->delete();
+                Panier::where('id_client', $commande->client->id)->delete();
             }
 
             if (!$commande) return;

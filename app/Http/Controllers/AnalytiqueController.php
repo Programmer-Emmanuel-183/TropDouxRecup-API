@@ -49,6 +49,7 @@ class AnalytiqueController extends Controller
             $commandesMois = DB::table('sous_commandes')
                 ->where('id_marchand', $marchandId)
                 ->where('statut', '!=', 'pending_payment')
+                ->where('statut', '!=', 'failed')
                 ->whereBetween('created_at', [$startMonth, $endMonth])
                 ->distinct('code_commande')
                 ->count('code_commande');
@@ -58,6 +59,7 @@ class AnalytiqueController extends Controller
              * =============================== */
             $clientsMois = DB::table('sous_commandes')
                 ->where('id_marchand', $marchandId)
+                ->where('statut', '!=', 'failed')
                 ->where('statut', '!=', 'pending_payment')
                 ->whereBetween('created_at', [$startMonth, $endMonth])
                 ->distinct('id_client')
@@ -68,6 +70,7 @@ class AnalytiqueController extends Controller
              * =============================== */
             $totalCommandes = DB::table('sous_commandes')
                 ->where('id_marchand', $marchandId)
+                ->where('statut', '!=', 'failed')
                 ->where('statut', '!=', 'pending_payment')
                 ->distinct('code_commande')
                 ->count('code_commande');
@@ -90,6 +93,7 @@ class AnalytiqueController extends Controller
                 ->where('sous_commandes.id_marchand', $marchandId)
                 ->where('sous_commandes.created_at', '>=', now()->subDays(6))
                 ->where('sous_commandes.statut', '!=', 'pending_payment')
+                ->where('sous_commandes.statut', '!=', 'failed')
                 ->select(
                     'sous_commandes.code_commande',
                     'sous_commandes.created_at',
@@ -148,6 +152,7 @@ class AnalytiqueController extends Controller
                 ->join('plats', 'plats.id', '=', 'sous_commandes.id_plat')
                 ->where('sous_commandes.id_marchand', $marchandId)
                 ->where('sous_commandes.statut', '!=', 'pending_payment')
+                ->where('sous_commandes.statut', '!=', 'failed')
                 ->select(
                     'plats.nom_plat',
                     DB::raw('SUM(sous_commandes.quantite_plat) as total')
@@ -171,6 +176,7 @@ class AnalytiqueController extends Controller
             ->join('plats', 'plats.id', '=', 'sous_commandes.id_plat')
             ->where('sous_commandes.id_marchand', $marchandId)
             ->where('sous_commandes.statut', '!=', 'pending_payment')
+            ->where('sous_commandes.statut', '!=', 'failed')
             ->whereBetween('sous_commandes.created_at', [$startMonth, $endMonth])
             ->sum(DB::raw('(plats.prix_origine - plats.prix_reduit) * sous_commandes.quantite_plat'));
 
@@ -220,14 +226,13 @@ class AnalytiqueController extends Controller
             $hasStatsBase = $avantages->contains('nom_avantage', 'Statistiques de base');
             $hasStatsAdvanced = $avantages->contains('nom_avantage', 'Statistiques avancées');
             $hasDashboardFull = $avantages->contains('nom_avantage', 'Tableau de bord personnalisé');
-
+            $responseData['economies_clients_mois'] = (int) $economiesClientsMois;
             if ($hasStatsAdvanced || $hasDashboardFull) {
                 $responseData['statistics_datas'] = $statisticsDatas;
             }
 
             if ($hasDashboardFull) {
                 $responseData['pie_datas'] = $pieDatas;
-                $responseData['economies_clients_mois'] = (int) $economiesClientsMois;
                 $responseData['best_day'] = $bestDay ? [
                     'day' => ucfirst(Carbon::parse($bestDay->day)->locale('fr')->translatedFormat('l')),
                     'revenu' => (int) $bestDay->revenu,
