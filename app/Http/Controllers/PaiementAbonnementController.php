@@ -334,6 +334,17 @@ class PaiementAbonnementController extends Controller
         $facturation->id_user = $paiement->marchand->id;
         $facturation->save();
 
+        $admin = Admin::where('role', 2)->first();
+        if(!$admin){
+            return response()->json([
+                'success' => false,
+                'message' => 'Administrateur introuvable'
+            ], 404);
+        }
+
+        $admin->solde += $paiement->prix;
+        $admin->save(); 
+
         // 🔔 Envoi mail aux admins
         $admins = Admin::pluck('email_admin')->toArray();
 
@@ -594,6 +605,51 @@ class PaiementAbonnementController extends Controller
             'message' => 'Callback traité avec succès'
         ], 200);
     }
+
+    public function historique_abonnement(){
+        try {
+
+            $historiques = PaiementAbonnement::with(['marchand', 'abonnement'])
+                ->latest()
+                ->get()
+                ->map(function ($paiement) {
+                    return [
+                        'id' => $paiement->id,
+                        'prix' => $paiement->prix,
+                        'statut' => $paiement->statut,
+                        'created_at' => $paiement->created_at,
+
+                        'marchand' => [
+                            'id' => $paiement->marchand->id,
+                            'nom' => $paiement->marchand->nom_marchand,
+                            'email' => $paiement->marchand->email_marchand,
+                            'telephone' => $paiement->marchand->tel_marchand,
+                        ],
+
+                        'abonnement' => [
+                            'id' => $paiement->abonnement->id,
+                            'type_abonnement' => $paiement->abonnement->type_abonnement,
+                            'montant' => $paiement->abonnement->montant,
+                            'duree' => $paiement->abonnement->duree,
+                        ],
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Historique de paiement des abonnements affichés avec succès',
+                'data' => $historiques
+            ], 200);
+
+        } catch (QueryException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l’affichage de l’historique de paiement des abonnements',
+                'erreur' => $e->getMessage()
+            ], 500);
+        }
+    }
+
 
 
 

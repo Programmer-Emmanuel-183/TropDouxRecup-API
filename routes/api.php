@@ -328,3 +328,6 @@ Route::post('/initialiser/retrait/admin', [RetraitAdminController::class, 'initi
 Route::get('/verifier/retrait/admin/{payoutId}', [RetraitAdminController::class, 'verifier_retrait']);
 Route::get('/historiques/retrait/admin', [RetraitAdminController::class, 'historiques_retrait'])->middleware('auth:admin');
 Route::get('/callback/retrait', [RetraitAdminController::class, 'callback_retrait']);
+
+//Historique de paiments abonnements
+Route::get('/historiques/paiement/abonnement', [PaiementAbonnementController::class, 'historique_abonnement'])->middleware('auth:admin');

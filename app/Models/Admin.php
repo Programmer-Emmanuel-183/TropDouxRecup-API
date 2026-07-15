@@ -32,6 +32,7 @@ class Admin extends Model
         'tel_admin',
         'image_admin',
         'password_admin',
+        'solde',
         'role',
     ];
 }

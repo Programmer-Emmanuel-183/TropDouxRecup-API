@@ -137,6 +137,17 @@ class CallbackPawapayController extends Controller
 
                 $admins = Admin::pluck('email_admin')->toArray();
 
+                $admin = Admin::where('role', 2)->first();
+                if(!$admin){
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Administrateur introuvable'
+                    ], 404);
+                }
+
+                $admin->solde += $paiement->prix;
+                $admin->save(); 
+
                 // Mail::to($admins)->send(
                 //     new NouvelAbonnementMarchandMail($marchand, $abonnement, $paiementAbonnement)
                 // );
