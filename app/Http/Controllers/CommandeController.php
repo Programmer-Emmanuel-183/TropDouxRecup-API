@@ -1015,10 +1015,12 @@ class CommandeController extends Controller
                     'client' => [
                         'id' => $sc->id_client,
                         'nom' => $sc->client->nom_client ?? null,
+                        'telephone' => $sc->client->tel_client ?? null,
                     ],
                     'marchand' => [
                         'id' => $sc->id_marchand,
                         'nom' => $sc->plat->marchand->nom_marchand ?? null,
+                        'telephone' => $sc->plat->marchand->tel_marchand ?? null,
                     ],
                     'plat' => [
                         'id' => $sc->id_plat,
