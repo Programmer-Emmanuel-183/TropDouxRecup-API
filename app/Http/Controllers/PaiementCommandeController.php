@@ -197,6 +197,12 @@ class PaiementCommandeController extends Controller
             $commande = Commande::with(['sousCommandes.plat.marchand'])
                 ->find($paiement->id_commande);
 
+            if ($commande) {
+                Panier::where('id_client', $paiement->id_client)
+                    ->whereIn('id_plat', $commande->sousCommandes->pluck('id_plat'))
+                    ->delete();
+            }
+
             $client = $paiement->client;
 
             $dishes = [];
@@ -266,7 +272,13 @@ class PaiementCommandeController extends Controller
             return response()->json(['success' => false, 'message' => 'Paiement non finalisé'], 200);
         }
 
-        DB::transaction(function () use ($paiement, $result) {
+        DB::transaction(function () use (&$paiement, $result) {
+
+            $paiement = PaiementCommande::lockForUpdate()->find($paiement->id);
+
+            if (!$paiement || $paiement->statut === 'completed') {
+                return;
+            }
 
             $paiement->update([
                 'statut' => 'completed',
@@ -274,8 +286,7 @@ class PaiementCommandeController extends Controller
             ]);
 
             $commande = Commande::with([
-                'sousCommandes.plat.marchand.abonnement',
-                'client'
+                'sousCommandes.plat.marchand.abonnement'
             ])->find($paiement->id_commande);
 
             if (!$commande) {
@@ -306,19 +317,17 @@ class PaiementCommandeController extends Controller
             //     Mail::to($admin->email_admin)->send(new NouvelleCommandePayee($commande, $commande->client));
             // }
 
-            // 🧹 Nettoyage panier UNIQUEMENT si paiement validé
-            if ($commande && $commande->client) {
-                Panier::where('id_client', $commande->client->id)->delete();
-            }
-
-            if (!$commande) return;
-
             $commande->update(['statut' => 'pending']);
 
             SousCommande::where('id_commande', $commande->id)
             ->update([
                 'statut' => 'pending'
             ]);
+
+            // 🧹 Nettoyage panier UNIQUEMENT si paiement validé
+            Panier::where('id_client', $paiement->id_client)
+                ->whereIn('id_plat', $commande->sousCommandes->pluck('id_plat'))
+                ->delete();
 
             $admin = Admin::where('role', 2)->first();
 

@@ -16,6 +16,9 @@ use App\Models\Notification;
 use App\Models\PaiementAbonnement;
 use App\Models\PaiementCommande;
 use App\Models\Panier;
+use App\Models\Plat;
+use App\Models\SousCommande;
+use App\Models\Transaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -145,7 +148,7 @@ class CallbackPawapayController extends Controller
                     ], 404);
                 }
 
-                $admin->solde += $paiement->prix;
+                $admin->solde += $paiementAbonnement->prix;
                 $admin->save(); 
 
                 // Mail::to($admins)->send(
@@ -197,6 +200,10 @@ class CallbackPawapayController extends Controller
                     'data' => $request->all()
                 ]);
 
+                Commande::where('id', $paiementCommande->id_commande)->update(['statut' => 'failed']);
+                SousCommande::where('id_commande', $paiementCommande->id_commande)
+                    ->update(['statut' => 'failed']);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Paiement échoué'
@@ -222,7 +229,13 @@ class CallbackPawapayController extends Controller
                 ], 422);
             }
 
-            DB::transaction(function () use ($paiementCommande, $request) {
+            DB::transaction(function () use (&$paiementCommande, $request) {
+
+                $paiementCommande = PaiementCommande::lockForUpdate()->find($paiementCommande->id);
+
+                if (!$paiementCommande || $paiementCommande->statut === 'completed') {
+                    return;
+                }
 
                 $paiementCommande->update([
                     'statut' => 'completed',
@@ -233,23 +246,31 @@ class CallbackPawapayController extends Controller
                     'sousCommandes.plat.marchand.abonnement'
                 ])->find($paiementCommande->id_commande);
 
-                // 🧹 Nettoyage panier UNIQUEMENT si paiement validé
-                if ($commande && $commande->client) {
-                    Panier::where('id_client', $commande->client->id)
-                        ->whereIn('id_plat', $commande->sousCommandes->pluck('id_plat'))
-                        ->delete();
+                if (!$commande) {
+                    throw new \Exception("Commande introuvable.");
                 }
 
-                // Récupérer tous les admins (role = 2)
-                $admins = Admin::where('role', 2)->get();
+                foreach ($commande->sousCommandes as $sousCommande) {
+                    $plat = Plat::lockForUpdate()->find($sousCommande->id_plat);
 
-                // foreach ($admins as $admin) {
-                //     Mail::to($admin->email_admin)->send(new NouvelleCommandePayee($commande, $commande->client));
-                // }
+                    if (!$plat) {
+                        throw new \Exception("Le plat n'existe plus.");
+                    }
 
-                if (!$commande) return;
+                    if ($plat->quantite_disponible < $sousCommande->quantite_plat) {
+                        throw new \Exception("Stock insuffisant pour {$plat->nom_plat}.");
+                    }
+
+                    $plat->decrement('quantite_disponible', $sousCommande->quantite_plat);
+                }
 
                 $commande->update(['statut' => 'pending']);
+                SousCommande::where('id_commande', $commande->id)
+                    ->update(['statut' => 'pending']);
+
+                Panier::where('id_client', $paiementCommande->id_client)
+                    ->whereIn('id_plat', $commande->sousCommandes->pluck('id_plat'))
+                    ->delete();
 
                 $admin = Admin::where('role', 2)->first();
 
@@ -289,6 +310,20 @@ class CallbackPawapayController extends Controller
 
                     foreach ($sousCommandes as $sc) {
                         $sc->update(['commission' => $commissionPercent]);
+                    }
+
+                    $codeCommande = $sousCommandes->first()->code_commande;
+                    $alreadyCredited = Transaction::where('libelle', "Commande #{$codeCommande}")
+                        ->where('id_user', $marchand->id)
+                        ->exists();
+
+                    if (!$alreadyCredited) {
+                        Transaction::create([
+                            'amount'   => $partMarchand,
+                            'type'     => 'credit',
+                            'libelle'  => "Commande #{$codeCommande}",
+                            'id_user'  => $marchand->id,
+                        ]);
                     }
 
                     if ($admin) {

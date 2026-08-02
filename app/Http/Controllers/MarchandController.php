@@ -6,6 +6,7 @@ use App\Models\Avis;
 use App\Models\FavorisMarchand;
 use App\Models\FavorisPlat;
 use App\Models\Marchand;
+use App\Models\PaiementCommande;
 use App\Models\Plat;
 use App\Models\SousCommande;
 use Illuminate\Database\QueryException;
@@ -327,15 +328,27 @@ class MarchandController extends Controller
         }
 
         try{
-            $total_commande = SousCommande::where('id_marchand', $marchand->id)->where('statut', 'completed')->count();
-            $commande_attente = SousCommande::where('id_marchand', $marchand->id)->where('statut', 'pending')->count();
+            $total_commande = SousCommande::where('id_marchand', $marchand->id)
+                ->whereNotIn('statut', ['pending_payment', 'failed'])
+                ->distinct('code_commande')
+                ->count('code_commande');
+
+            $commande_attente = SousCommande::where('id_marchand', $marchand->id)
+                ->where('statut', 'pending')
+                ->distinct('code_commande')
+                ->count('code_commande');
+
+            $commandesPayeesAujourdhui = PaiementCommande::where('statut', 'completed')
+                ->whereDate('updated_at', today())
+                ->pluck('id_commande');
+
             $today_vente = SousCommande::with('plat')
-                ->where('statut', 'completed')
+                ->whereIn('id_commande', $commandesPayeesAujourdhui)
+                ->whereNotIn('statut', ['pending_payment', 'failed'])
                 ->where('id_marchand', $marchand->id)
-                ->whereDate('created_at', today())
                 ->get()
                 ->sum(function ($item) {
-                    return $item->plat->prix_reduit ?? 0;
+                    return ($item->plat->prix_reduit ?? 0) * $item->quantite_plat;
                 });
             $plat_disponible = Plat::where('id_marchand', $marchand->id)->where('quantite_disponible', '>', 0)->count();
 

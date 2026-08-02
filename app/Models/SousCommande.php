@@ -53,4 +53,9 @@ class SousCommande extends Model
     public function commande(){
         return $this->belongsTo(Commande::class, 'id_commande');
     }
+
+    public function paiement(){
+        return $this->hasOne(PaiementCommande::class, 'id_commande', 'id_commande')
+            ->where('id_marchand', $this->id_marchand);
+    }
 }

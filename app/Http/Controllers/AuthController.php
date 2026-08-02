@@ -1315,7 +1315,7 @@ class AuthController extends Controller
 
 
     private function uploadImageToHosting($image){
-        $apiKey = '9b1ab6564d99aab6418ad53d3451850b';
+        $apiKey = env('IMGBB');
 
         // Vérifie que le fichier est une instance valide
         if (!$image->isValid()) {

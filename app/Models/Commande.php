@@ -39,4 +39,8 @@ class Commande extends Model
         return $this->belongsTo(Marchand::class, 'id_marchand');
     }
 
+    public function paiement(){
+        return $this->hasMany(PaiementCommande::class, 'id_commande', 'id');
+    }
+
 }
